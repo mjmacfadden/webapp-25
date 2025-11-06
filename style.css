@@ -1,0 +1,20 @@
+body{
+
+}
+.container{
+    max-width: 600px;
+}
+
+input{
+    max-width:100px;
+}
+
+/* LIGHT BOX */
+/* Custom styles for image hover effect */
+.image-link {
+    transition: transform 0.2s;
+    cursor: pointer;
+}
+.image-link:hover .gallery-image {
+    transform: scale(1.05); /* Slightly scales the image on hover */
+}
