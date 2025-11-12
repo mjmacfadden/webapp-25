@@ -1,12 +1,42 @@
 body{
-
+    background-color: #fff;
 }
 .container{
-    max-width: 600px;
+    max-width: 1000px;
 }
 
-input{
-    max-width:100px;
+.exercise-row {
+    padding: 1rem 0;
+    border-bottom: 1px solid #dee2e6;
+    transition: background-color 0.3s ease;
+}
+.exercise-row img{ 
+    max-height:90px;
+}
+
+.exercise-row:nth-child(odd) {
+    background-color: #fff;
+}
+
+.exercise-row:nth-child(even) {
+    background-color: #f8f9fa;
+}
+
+/* Make sure this comes after the nth-child rules to override them */
+.exercise-row.exercise-complete {
+    background-color: #d4edda !important;
+}
+
+input.exercise-input {
+    max-width: 80px;
+    padding: 0.25rem 0.5rem;
+    border: 1px solid #ced4da;
+    border-radius: 0.25rem;
+}
+
+.btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
 }
 
 /* LIGHT BOX */
@@ -17,4 +47,16 @@ input{
 }
 .image-link:hover .gallery-image {
     transform: scale(1.05); /* Slightly scales the image on hover */
+}
+
+/* SimpleLightbox custom styles */
+.sl-overlay {
+    background: #000 !important;
+    opacity: 0.9 !important; /* Make background darker (default is 0.7) */
+}
+.sl-wrapper .sl-navigation button {
+    color: #fff !important; /* Make navigation arrows more visible against darker background */
+}
+.sl-wrapper .sl-close {
+    color: #fff !important; /* Make close button more visible against darker background */
 }
