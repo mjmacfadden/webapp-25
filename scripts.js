@@ -25,7 +25,7 @@ const EXERCISES = [
         weight: true
     },
     {
-        id: 'hammercurl',
+        id: 'changethishammercurl',
         name: 'Hammer Curl',
         targetReps: 8,
         image: 'img/hammer_curl.jpg',
@@ -94,7 +94,7 @@ const EXERCISES = [
         targetReps: '15',
         image: 'img/trx_inverted_row.jpg',
         gif: 'img/trx_inverted_row.gif',
-        weight: true
+        weight: false
     },
     {
         id: 'dumbbellbicepcurl',
@@ -105,7 +105,7 @@ const EXERCISES = [
         weight: true
     },
     {
-        id: 'ammercurl',
+        id: 'hammercurl',
         name: 'Hammer Curl',
         targetReps: '12',
         image: 'img/hammer_curl.jpg',
@@ -118,7 +118,7 @@ const EXERCISES = [
         targetReps: '15',
         image: 'img/resistance_band_face_pulls.jpg',
         gif: 'img/resistance_band_face_pulls.gif',
-        weight: true
+        weight: false
     }
 ];
 
@@ -784,3 +784,50 @@ function updateWorkoutTitle(selection) {
 function restoreWorkoutStates() {
   renderWorkoutLog();
 }
+
+// EXPORT localStorage → JSON file
+document.getElementById("export-log-btn").addEventListener("click", function () {
+    const data = JSON.stringify(localStorage, null, 2);
+    const blob = new Blob([data], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "getSwoll.json";
+    a.click();
+
+    URL.revokeObjectURL(url);
+});
+
+
+// IMPORT JSON file → localStorage
+document.getElementById("import-log-btn").addEventListener("click", function () {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "application/json";
+
+    input.onchange = e => {
+        const file = e.target.files[0];
+        const reader = new FileReader();
+
+        reader.onload = () => {
+            const data = JSON.parse(reader.result);
+
+            // (Optional) clear existing storage
+            // localStorage.clear();
+
+            // Restore keys
+            Object.keys(data).forEach(key => {
+                localStorage.setItem(key, data[key]);
+            });
+
+            // Refresh page so UI repopulates
+            location.reload();
+        };
+
+        reader.readAsText(file);
+    };
+
+    input.click();
+});
+
