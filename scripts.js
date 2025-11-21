@@ -119,6 +119,14 @@ const EXERCISES = [
         image: 'img/resistance_band_face_pulls.jpg',
         gif: 'img/resistance_band_face_pulls.gif',
         weight: false
+    },
+    {
+        id: 'barbellbacksquat',
+        name: 'Barbell Back Squat',
+        targetReps: '8',
+        image: 'img/barbell_back_squat.jpg',
+        gif: 'img/barbell_back_squat.gif',
+        weight: true
     }
 ];
 
@@ -157,7 +165,7 @@ const WORKOUT_PRESETS = [
     {
         name: 'Legs 1',
         description: 'Calfs, Quads, Glutes, Hamstrings',
-        exercises: []
+        exercises: [16, 16, 16, 16]
     },
     {
         name: 'Legs 2',
