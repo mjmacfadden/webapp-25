@@ -127,6 +127,14 @@ const EXERCISES = [
         image: 'img/barbell_back_squat.jpg',
         gif: 'img/barbell_back_squat.gif',
         weight: true
+    },
+    {
+        id: 'dumbbelwalkinglunges',
+        name: 'Dumbbell Walking Lunges',
+        targetReps: '12',
+        image: 'img/dumbbell_walking_lunges.jpg',
+        gif: 'img/dumbbell_walking_lunges.gif',
+        weight: true
     }
 ];
 
@@ -165,7 +173,7 @@ const WORKOUT_PRESETS = [
     {
         name: 'Legs 1',
         description: 'Calfs, Quads, Glutes, Hamstrings',
-        exercises: [16, 16, 16, 16]
+        exercises: [16, 16, 16, 16, 2, 2, 2, 2, 17, 17, 17]
     },
     {
         name: 'Legs 2',
