@@ -135,6 +135,54 @@ const EXERCISES = [
         image: 'img/dumbbell_walking_lunges.jpg',
         gif: 'img/dumbbell_walking_lunges.gif',
         weight: true
+    },
+    {
+        id: 'bulgariangobletsplitsquat',
+        name: 'Bulgarian Goblet Split Squat',
+        targetReps: '12',
+        image: 'img/bulgarian_goblet_splitsquat.jpg',
+        gif: 'img/bulgarian_goblet_splitsquat.gif',
+        weight: true
+    },
+    {
+        id: 'dumbbellbulgariansplitsquat',
+        name: 'Dumbbell Bulgarian Split Squat',
+        targetReps: '12',
+        image: 'img/dumbbell_bulgarian_splitsquat.jpg',
+        gif: 'img/dumbbell_bulgarian_splitsquat.gif',
+        weight: true
+    },
+    {
+        id: 'gobletsquat',
+        name: 'Goblet Squat',
+        targetReps: '20',
+        image: 'img/goblet_squat.jpg',
+        gif: 'img/goblet_squat.gif',
+        weight: true
+    },
+    {
+        id: 'hiphingelegcurl',
+        name: 'Hip Hinge Leg Curl (with slides)',
+        targetReps: '15',
+        image: 'img/hip_hinge_leg_curl.jpg',
+        gif: 'img/hip_hinge_leg_curl.gif',
+        weight: false
+    },
+    {
+        id: 'seatedfrontmilitarypress',
+        name: 'Seated Front Military Press',
+        targetReps: '8',
+        image: 'img/seated_front_military_press.jpg',
+        gif: 'img/seated_front_military_press.gif',
+        weight: true
+    },
+        {
+        id: 'closegripbenchpress',
+        name: 'Close Grip Bench Press',
+        targetReps: '8',
+        image: 'img/close_grip_bench_press.jpg',
+        gif: 'img/close_grip_bench_press.gif',
+        weight: true
     }
 ];
 
@@ -148,7 +196,7 @@ const WORKOUT_PRESETS = [
     {
         name: 'Push 2',
         description: 'Chest and Triceps',
-        exercises: [3]
+        exercises: [22, 22, 22, 22, 23, 23, 23, 23]
     },
     {
         name: 'Push 3',
@@ -173,7 +221,7 @@ const WORKOUT_PRESETS = [
     {
         name: 'Legs 1',
         description: 'Calfs, Quads, Glutes, Hamstrings',
-        exercises: [16, 16, 16, 16, 2, 2, 2, 2, 17, 17, 17]
+        exercises: [16, 16, 16, 16, 2, 2, 2, 2, 17, 17, 17, 18, 18, 18, 20, 20, 20, 21, 21, 21]
     },
     {
         name: 'Legs 2',
