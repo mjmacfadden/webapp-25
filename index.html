@@ -93,11 +93,16 @@
 
         <div class="container mt-4" id="exercise-container"></div>
 
-        <script src="scripts.js?v1.024"></script>
         <script>
-            document.addEventListener('DOMContentLoaded', function() {
-                ExerciseTracker.init();
-            });
+            // Cache-busting for development - reload JS every time
+            const script = document.createElement('script');
+            script.src = 'scripts.js?t=' + Date.now();
+            script.onload = function() {
+                document.addEventListener('DOMContentLoaded', function() {
+                    ExerciseTracker.init();
+                });
+            };
+            document.head.appendChild(script);
         </script>
     </body>
 </html>
