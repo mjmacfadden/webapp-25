@@ -280,7 +280,7 @@ const WORKOUT_PRESETS = [
     },
     {
         name: '10 Minute Abs and Core Workout',
-        description: '10 Minute Abs and Core Workout',
+        description: '10 Minute Abs',
         videoId: 'BdhqubW1GJE'
     }
 ];
