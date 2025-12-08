@@ -232,6 +232,16 @@ const WORKOUT_PRESETS = [
         name: 'Legs 3',
         description: 'Calfs, Quads, Glutes, Hamstrings',
         exercises: []
+    },
+    {
+        name: 'Full Body Kettlebell',
+        description: 'Full Body Kettlebell Workout',
+        videoId: '4stAcpR4pFs'
+    },
+    {
+        name: '10 Minute Abs and Core Workout',
+        description: '10 Minute Abs and Core Workout',
+        videoId: 'BdhqubW1GJE'
     }
 ];
 
@@ -260,17 +270,31 @@ const ExerciseTracker = {
         menu.innerHTML = '';
 
         WORKOUT_PRESETS.forEach((preset, index) => {
-            const exerciseParams = preset.exercises.join(',');
             const li = document.createElement('li');
             li.className = 'list-group-item d-flex justify-content-between align-items-center';
             
             const link = document.createElement('a');
-            link.href = `?e=${exerciseParams}`;
+            
+            // Determine URL based on workout type
+            if (preset.videoId) {
+                link.href = `?video=${preset.videoId}`;
+            } else {
+                const exerciseParams = preset.exercises.join(',');
+                link.href = `?e=${exerciseParams}`;
+            }
+            
             link.style.flex = '1';
             link.style.textDecoration = 'none';
             link.style.color = 'inherit';
+            
+            // Add icon for video workouts
+            let iconPrefix = '';
+            if (preset.videoId) {
+                iconPrefix = '<i class="bi bi-play-btn-fill" style="margin-right: 0.5rem;"></i>';
+            }
+            
             link.innerHTML = `
-                <div><strong>${preset.name}</strong></div>
+                <div><strong>${iconPrefix}${preset.name}</strong></div>
                 <small class="text-muted">${preset.description}</small>
             `;
             
@@ -358,8 +382,37 @@ const ExerciseTracker = {
     renderExercises() {
         const container = document.getElementById('exercise-container');
         container.innerHTML = '';
+        const videoContainer = document.getElementById('video-container');
         
         const selection = this.parseExerciseSelection();
+        
+        // Check if current workout is a video workout
+        const currentUrl = window.location.search;
+        let currentPreset = null;
+        
+        if (currentUrl === '?' || !currentUrl) {
+            // View All - no video
+            videoContainer.style.display = 'none';
+        } else {
+            // Check if this matches a video preset
+            currentPreset = WORKOUT_PRESETS.find(preset => {
+                if (!preset.videoId) return false;
+                // Video presets are accessed via special parameter or through sidebar
+                const urlParams = new URLSearchParams(window.location.search);
+                return urlParams.get('video') === preset.videoId;
+            });
+            
+            if (currentPreset && currentPreset.videoId) {
+                // Display video workout
+                videoContainer.style.display = 'block';
+                document.getElementById('workout-video').src = `https://www.youtube.com/embed/${currentPreset.videoId}`;
+                updateWorkoutTitle([], currentPreset.name);
+                return;
+            } else {
+                videoContainer.style.display = 'none';
+            }
+        }
+        
         const exercisesToRender = selection.length > 0 
             ? selection.map(idx => EXERCISES[idx - 1]).filter(Boolean)
             : EXERCISES;
@@ -609,9 +662,27 @@ document.querySelectorAll('.timer-duration-option').forEach(option => {
 // Highlight the selected duration on page load
 updateTimerMenuHighlight();
 
+// Initialize audio context on first user interaction (mobile compatibility)
+function initAudioContext() {
+  if (!audioCtx) {
+    try {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+    } catch (e) {
+      console.log('Audio context initialization failed:', e);
+    }
+  }
+}
+
+document.addEventListener('click', initAudioContext, { once: true });
+document.addEventListener('touchstart', initAudioContext, { once: true });
+
 // Only start timer on stopwatch icon click, not on dropdown toggle
 document.getElementById('stopwatchIcon').addEventListener('click', (e) => {
   e.stopPropagation();
+  initAudioContext();
   if (active) reset(); else start();
 });
 
@@ -645,21 +716,43 @@ function reset() {
 }
 
 function playBeep() {
-  if (!audioCtx) {
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  try {
+    if (!audioCtx) {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    
+    // Resume audio context if suspended (common on mobile)
+    if (audioCtx.state === 'suspended') {
+      audioCtx.resume().then(() => {
+        playBeepSound();
+      }).catch(err => {
+        console.log('Audio context resume failed:', err);
+      });
+    } else {
+      playBeepSound();
+    }
+  } catch (e) {
+    console.log('Audio context error:', e);
   }
-  const osc = audioCtx.createOscillator();
-  const gain = audioCtx.createGain();
-  osc.connect(gain);
-  gain.connect(audioCtx.destination);
+}
 
-  osc.frequency.value = 200;
-  osc.type = 'square';
-  gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
-  gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+function playBeepSound() {
+  try {
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
 
-  osc.start();
-  osc.stop(audioCtx.currentTime + 0.5);
+    osc.frequency.value = 200;
+    osc.type = 'square';
+    gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.5);
+  } catch (e) {
+    console.log('Beep playback error:', e);
+  }
 }
 
 // Workout completion tracking
@@ -703,17 +796,42 @@ function addToLog(workoutName, date) {
 }
 
 function removeFromLog(logId) {
-  // Get existing log
-  let log = JSON.parse(localStorage.getItem('workoutLog') || '[]');
+  // Show confirmation alert using Bootstrap modal
+  const alertDiv = document.createElement('div');
+  alertDiv.className = 'alert alert-warning alert-dismissible fade show';
+  alertDiv.setAttribute('role', 'alert');
+  alertDiv.style.cssText = 'position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 10000; min-width: 300px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);';
   
-  // Remove the entry
-  log = log.filter(entry => entry.id !== logId);
+  alertDiv.innerHTML = `
+    <strong>Delete Workout?</strong>
+    <div style="margin-top: 0.75rem;">
+      <button type="button" class="btn btn-sm btn-danger" id="confirm-delete">Delete</button>
+      <button type="button" class="btn btn-sm btn-secondary" id="cancel-delete">Cancel</button>
+    </div>
+  `;
   
-  // Save to localStorage
-  localStorage.setItem('workoutLog', JSON.stringify(log));
+  document.body.appendChild(alertDiv);
   
-  // Update the log display
-  renderWorkoutLog();
+  document.getElementById('confirm-delete').addEventListener('click', () => {
+    // Get existing log
+    let log = JSON.parse(localStorage.getItem('workoutLog') || '[]');
+    
+    // Remove the entry
+    log = log.filter(entry => entry.id !== logId);
+    
+    // Save to localStorage
+    localStorage.setItem('workoutLog', JSON.stringify(log));
+    
+    // Update the log display
+    renderWorkoutLog();
+    
+    // Remove alert
+    document.body.removeChild(alertDiv);
+  });
+  
+  document.getElementById('cancel-delete').addEventListener('click', () => {
+    document.body.removeChild(alertDiv);
+  });
 }
 
 function renderWorkoutLog() {
@@ -838,8 +956,23 @@ function updateWorkoutRating(logId, rating) {
   }
 }
 
-function updateWorkoutTitle(selection) {
+function restoreWorkoutStates() {
+  renderWorkoutLog();
+}
+
+// Video workout logging
+function logVideoWorkout(workoutName) {
+  const today = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  addToLog(workoutName, today);
+}
+
+function updateWorkoutTitle(selection, videoName = null) {
   const titleSpan = document.getElementById('workoutTitle');
+  
+  if (videoName) {
+    titleSpan.textContent = videoName;
+    return;
+  }
   
   if (selection.length === 0) {
     // No specific workout selected, show all exercises
@@ -851,7 +984,8 @@ function updateWorkoutTitle(selection) {
   let workoutName = null;
   
   WORKOUT_PRESETS.forEach(preset => {
-    if (JSON.stringify(preset.exercises.sort((a, b) => a - b)) === 
+    // Only check exercise presets (skip video presets)
+    if (preset.exercises && JSON.stringify(preset.exercises.sort((a, b) => a - b)) === 
         JSON.stringify(selection.slice().sort((a, b) => a - b))) {
       workoutName = preset.name;
     }
@@ -864,12 +998,6 @@ function updateWorkoutTitle(selection) {
   
   titleSpan.textContent = workoutName;
 }
-
-function restoreWorkoutStates() {
-  renderWorkoutLog();
-}
-
-// EXPORT localStorage → JSON file
 document.getElementById("export-log-btn").addEventListener("click", function () {
     const data = JSON.stringify(localStorage, null, 2);
     const blob = new Blob([data], { type: "application/json" });
