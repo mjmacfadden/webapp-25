@@ -1084,3 +1084,8 @@ document.getElementById("import-log-btn").addEventListener("click", function () 
     input.click();
 });
 
+// Register Service Worker for PWA support
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').catch(err => console.log('SW registration failed:', err));
+}
+

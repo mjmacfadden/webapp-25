@@ -1,0 +1,48 @@
+{
+  "name": "SWOLL - Workout Tracker",
+  "short_name": "SWOLL",
+  "description": "Track your workouts with exercises, presets, and logging",
+  "start_url": "index.html",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "portrait",
+  "background_color": "#ffffff",
+  "theme_color": "#000000",
+  "icons": [
+    {
+      "src": "favicon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "favicon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "favicon.png",
+      "sizes": "540x720",
+      "type": "image/png",
+      "form_factor": "narrow"
+    }
+  ],
+  "categories": ["fitness", "productivity"],
+  "shortcuts": [
+    {
+      "name": "View Workouts",
+      "short_name": "Workouts",
+      "description": "View your saved workouts",
+      "url": "index.html",
+      "icons": [
+        {
+          "src": "favicon.png",
+          "sizes": "96x96"
+        }
+      ]
+    }
+  ]
+}
