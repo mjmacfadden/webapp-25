@@ -183,6 +183,46 @@ const EXERCISES = [
         image: 'img/close_grip_bench_press.jpg',
         gif: 'img/close_grip_bench_press.gif',
         weight: true
+    },
+    {
+        id: 'dumbbellbenchpress',
+        name: 'Dumbbell Bench Press',
+        targetReps: '8',
+        image: 'img/dumbbell_bench_press.jpg',
+        gif: 'img/dumbbell_bench_press.gif',
+        weight: true
+    },
+    {
+        id: 'inclinebarbellbenchpress',
+        name: 'Incline Barbell Bench Press',
+        targetReps: '8',
+        image: 'img/incline_barbell_bench_press.jpg',
+        gif: 'img/incline_barbell_bench_press.gif',
+        weight: true
+    },
+    {
+        id: 'seateddumbbellshoulderpress',
+        name: 'Seated Dumbbell Shoulder Press',
+        targetReps: '12',
+        image: 'img/seated_dumbbell_shoulder_press.jpg',
+        gif: 'img/seated_dumbbell_shoulder_press.gif',
+        weight: true
+    },
+    {
+        id: 'trxtriceppress',
+        name: 'TRX Tricep Press',
+        targetReps: '12',
+        image: 'img/trx_tricep_press.jpg',
+        gif: 'img/trx_tricep_press.gif',
+        weight: false
+    },
+    {
+        id: 'bandedlateralraise',
+        name: 'Banded Lateral Raise',
+        targetReps: '12',
+        image: 'img/banded_lateral_raise.jpg',
+        gif: 'img/banded_lateral_raise.gif',
+        weight: false
     }
 ];
 
@@ -196,7 +236,7 @@ const WORKOUT_PRESETS = [
     {
         name: 'Push 2',
         description: 'Chest and Triceps',
-        exercises: [22, 22, 22, 22, 23, 23, 23, 23]
+        exercises: [24, 24, 24, 24, 25, 25, 25, 26, 26, 26, 9, 9, 9, 28, 28, 28, 27, 27, 27]
     },
     {
         name: 'Push 3',
@@ -1005,7 +1045,8 @@ document.getElementById("export-log-btn").addEventListener("click", function () 
 
     const a = document.createElement("a");
     a.href = url;
-    a.download = "getSwoll.json";
+    const today = new Date().toISOString().split('T')[0].replace(/-/g, ''); // YYYYMMDD format
+    a.download = `getSwoll-${today}.json`;
     a.click();
 
     URL.revokeObjectURL(url);
