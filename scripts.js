@@ -737,6 +737,9 @@ function start() {
     const durationSeconds = timerDuration / 1000;
     navbar.style.setProperty('--animation-duration', `${durationSeconds}s`);
 
+    // Play a quiet beep immediately (during user action for mobile audio permission)
+    playBeepSound();
+
     void navbar.offsetWidth;
     tid = setTimeout(reset, timerDuration);
 }
