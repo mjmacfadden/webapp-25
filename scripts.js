@@ -761,37 +761,70 @@ function playBeep() {
       audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     }
     
-    // Resume audio context if suspended (common on mobile)
+    // Always ensure the context is resumed before playing
     if (audioCtx.state === 'suspended') {
       audioCtx.resume().then(() => {
         playBeepSound();
       }).catch(err => {
         console.log('Audio context resume failed:', err);
+        playBeepFallback(); // Fallback if Web Audio API fails
       });
     } else {
       playBeepSound();
     }
   } catch (e) {
     console.log('Audio context error:', e);
+    playBeepFallback(); // Fallback if Web Audio API fails
   }
 }
 
 function playBeepSound() {
   try {
+    if (audioCtx.state !== 'running' && audioCtx.state !== 'suspended') {
+      playBeepFallback();
+      return;
+    }
+
     const osc = audioCtx.createOscillator();
     const gain = audioCtx.createGain();
     osc.connect(gain);
     gain.connect(audioCtx.destination);
 
-    osc.frequency.value = 200;
-    osc.type = 'square';
+    osc.frequency.value = 800; // Higher pitch for better mobile perception
+    osc.type = 'sine';
     gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
 
-    osc.start();
-    osc.stop(audioCtx.currentTime + 0.5);
+    osc.start(audioCtx.currentTime);
+    osc.stop(audioCtx.currentTime + 0.3);
   } catch (e) {
     console.log('Beep playback error:', e);
+    playBeepFallback();
+  }
+}
+
+// Fallback audio method using oscillator with better mobile support
+function playBeepFallback() {
+  try {
+    // Try HTML5 Audio API with data URL
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    const now = audioContext.currentTime;
+    const osc = audioContext.createOscillator();
+    const gain = audioContext.createGain();
+    
+    osc.connect(gain);
+    gain.connect(audioContext.destination);
+    
+    osc.frequency.setValueAtTime(800, now);
+    osc.type = 'sine';
+    
+    gain.gain.setValueAtTime(0.3, now);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+    
+    osc.start(now);
+    osc.stop(now + 0.3);
+  } catch (e) {
+    console.log('Fallback audio failed:', e);
   }
 }
 
