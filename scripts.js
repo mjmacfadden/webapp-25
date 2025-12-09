@@ -299,6 +299,7 @@ const ExerciseTracker = {
     _lightboxInstance: null,
 
     init() {
+        console.log('ExerciseTracker.init() called');
         this.renderMenu();
         this.renderExercises();
         this.initLightbox();
@@ -306,7 +307,12 @@ const ExerciseTracker = {
     },
 
     renderMenu() {
+        console.log('renderMenu called, WORKOUT_PRESETS length:', WORKOUT_PRESETS.length);
         const menu = document.getElementById('workout-menu');
+        if (!menu) {
+            console.error('workout-menu element not found!');
+            return;
+        }
         menu.innerHTML = '';
 
         WORKOUT_PRESETS.forEach((preset, index) => {
@@ -326,6 +332,21 @@ const ExerciseTracker = {
             link.style.flex = '1';
             link.style.textDecoration = 'none';
             link.style.color = 'inherit';
+            
+            // Handle click to update URL and re-render without full page reload
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                window.history.pushState(null, '', link.href);
+                this.renderExercises();
+                this.initLightbox();
+                this.loadSavedValues();
+                // Close sidebar after selection
+                const offcanvas = document.getElementById('workoutSidebar');
+                if (offcanvas) {
+                    const bsOffcanvas = bootstrap.Offcanvas.getInstance(offcanvas);
+                    if (bsOffcanvas) bsOffcanvas.hide();
+                }
+            });
             
             // Add icon for video workouts
             let iconPrefix = '';
@@ -370,6 +391,21 @@ const ExerciseTracker = {
             <div><strong>View All</strong></div>
             <small class="text-muted">All exercises</small>
         `;
+        
+        // Handle click to update URL and re-render without full page reload
+        viewAllLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            window.history.pushState(null, '', viewAllLink.href);
+            this.renderExercises();
+            this.initLightbox();
+            this.loadSavedValues();
+            // Close sidebar after selection
+            const offcanvas = document.getElementById('workoutSidebar');
+            if (offcanvas) {
+                const bsOffcanvas = bootstrap.Offcanvas.getInstance(offcanvas);
+                if (bsOffcanvas) bsOffcanvas.hide();
+            }
+        });
         
         const viewAllCheck = document.createElement('i');
         viewAllCheck.className = 'bi bi-check-square';

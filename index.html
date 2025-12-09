@@ -98,9 +98,15 @@
             const script = document.createElement('script');
             script.src = 'scripts.js?t=' + Date.now();
             script.onload = function() {
-                document.addEventListener('DOMContentLoaded', function() {
+                // Check if DOM is already loaded
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', function() {
+                        ExerciseTracker.init();
+                    });
+                } else {
+                    // DOM is already loaded, call directly
                     ExerciseTracker.init();
-                });
+                }
             };
             document.head.appendChild(script);
         </script>
