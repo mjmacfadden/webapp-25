@@ -513,6 +513,13 @@ const ExerciseTracker = {
             container.insertAdjacentHTML('beforeend', rowHTML);
         });
 
+        // Add log & rate workout row at the end if not viewing all exercises
+        if (selection.length > 0) {
+            const logRateRowHTML = this.createLogRateRowHTML(selection, exercisesToRender.length);
+            container.insertAdjacentHTML('beforeend', logRateRowHTML);
+            this.checkAndEnableLogRow();
+        }
+
         this.initExerciseListeners();
     },
 
@@ -552,6 +559,35 @@ const ExerciseTracker = {
         `;
     },
 
+    createLogRateRowHTML(selection, exerciseCount) {
+        return `
+            <div class="row exercise-row log-rate-row" style="background-color: #f0f8f4; margin-top: 0; padding: 1rem; border-top: 1px solid #dee2e6;" data-exercise-count="${exerciseCount}">
+                <div class="col-10">
+                    <div class="row align-items-center">
+                        <div class="col-auto" style="padding-right: 0;">
+                            <strong style="font-size: 0.9rem; color: #999;">Complete all exercises to log</strong>
+                        </div>
+                        <div class="col-auto log-rating-stars" style="display: flex; gap: 0.25rem; padding: 0 0.5rem; opacity: 0.5; pointer-events: none;">
+                            <i class="bi bi-star log-rate-star" data-rating="1" style="cursor: not-allowed; font-size: 1.2rem; color: #ccc; transition: all 0.1s;"></i>
+                            <i class="bi bi-star log-rate-star" data-rating="2" style="cursor: not-allowed; font-size: 1.2rem; color: #ccc; transition: all 0.1s;"></i>
+                            <i class="bi bi-star log-rate-star" data-rating="3" style="cursor: not-allowed; font-size: 1.2rem; color: #ccc; transition: all 0.1s;"></i>
+                            <i class="bi bi-star log-rate-star" data-rating="4" style="cursor: not-allowed; font-size: 1.2rem; color: #ccc; transition: all 0.1s;"></i>
+                        </div>
+                        <div class="col-auto">
+                            <button class="btn btn-success btn-sm log-workout-confirm" style="padding: 0.25rem 0.75rem;" disabled><i class="bi bi-check"></i> Log</button>
+                        </div>
+                        <div class="col-auto">
+                            <button class="btn btn-secondary btn-sm log-workout-cancel" style="padding: 0.25rem 0.75rem; display: none;"><i class="bi bi-x"></i></button>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-2 d-flex align-items-center justify-content-end">
+                    <i class="bi bi-check-circle log-complete-icon" style="font-size: 1.5rem; color: #ddd; transition: all 0.3s;"></i>
+                </div>
+            </div>
+        `;
+    },
+
     initExerciseListeners() {
         document.querySelectorAll('.submit-exercise').forEach(button => {
             button.addEventListener('click', (e) => {
@@ -572,6 +608,86 @@ const ExerciseTracker = {
                 const exerciseNumber = e.target.getAttribute('data-exercise-number');
                 const occurrenceNumber = e.target.getAttribute('data-occurrence');
                 this.clearExercise(exercise, displayIndex, exerciseNumber, occurrenceNumber);
+            });
+        });
+
+        // Inline log & rate row interactions
+        document.querySelectorAll('.log-rate-star').forEach(star => {
+            const starsContainer = star.closest('.log-rating-stars');
+            const logRow = starsContainer.closest('.log-rate-row');
+            
+            star.addEventListener('mouseover', (e) => {
+                const rating = parseInt(e.target.getAttribute('data-rating'));
+                starsContainer.querySelectorAll('.log-rate-star').forEach((s, idx) => {
+                    if (idx < rating) {
+                        s.classList.remove('bi-star');
+                        s.classList.add('bi-star-fill');
+                        s.style.color = '#ffc107';
+                    } else {
+                        s.classList.remove('bi-star-fill');
+                        s.classList.add('bi-star');
+                        s.style.color = '#999';
+                    }
+                });
+            });
+
+            star.addEventListener('click', (e) => {
+                const rating = parseInt(e.target.getAttribute('data-rating'));
+                starsContainer.setAttribute('data-selected-rating', rating);
+                starsContainer.querySelectorAll('.log-rate-star').forEach((s, idx) => {
+                    if (idx < rating) {
+                        s.classList.remove('bi-star');
+                        s.classList.add('bi-star-fill');
+                        s.style.color = '#ffc107';
+                    } else {
+                        s.classList.remove('bi-star-fill');
+                        s.classList.add('bi-star');
+                        s.style.color = '#999';
+                    }
+                });
+            });
+
+            starsContainer.addEventListener('mouseout', () => {
+                if (!isEnabled) return;
+                const selectedRating = parseInt(starsContainer.getAttribute('data-selected-rating') || '0');
+                starsContainer.querySelectorAll('.log-rate-star').forEach((s, idx) => {
+                    if (idx < selectedRating) {
+                        s.classList.remove('bi-star');
+                        s.classList.add('bi-star-fill');
+                        s.style.color = '#ffc107';
+                    } else {
+                        s.classList.remove('bi-star-fill');
+                        s.classList.add('bi-star');
+                        s.style.color = '#999';
+                    }
+                });
+            });
+        });
+
+        document.querySelectorAll('.log-workout-confirm').forEach(button => {
+            button.addEventListener('click', (e) => {
+                e.preventDefault();
+                const ratingRow = e.target.closest('[class*="exercise-row"]');
+                if (!ratingRow.classList.contains('enabled')) return;
+                
+                const starsContainer = ratingRow.querySelector('.log-rating-stars');
+                const selectedRating = parseInt(starsContainer.getAttribute('data-selected-rating') || '0');
+                
+                this.logAndRateWorkout(selectedRating);
+            });
+        });
+
+        document.querySelectorAll('.log-workout-cancel').forEach(button => {
+            button.addEventListener('click', (e) => {
+                e.preventDefault();
+                const ratingRow = e.target.closest('[class*="exercise-row"]');
+                const starsContainer = ratingRow.querySelector('.log-rating-stars');
+                starsContainer.setAttribute('data-selected-rating', '0');
+                starsContainer.querySelectorAll('.log-rate-star').forEach(s => {
+                    s.classList.remove('bi-star-fill');
+                    s.classList.add('bi-star');
+                    s.style.color = '#ddd';
+                });
             });
         });
     },
@@ -654,6 +770,9 @@ const ExerciseTracker = {
             if (weightInput) {
                 weightInput.value = '';
             }
+            
+            // Check if all exercises are complete
+            this.checkAndEnableLogRow();
         }
     },
 
@@ -670,6 +789,47 @@ const ExerciseTracker = {
         const weightInput = document.getElementById(`${exerciseId}-weight-${displayIndex}`);
         if (weightInput) {
             weightInput.value = '';
+        }
+        
+        // Check if all exercises are complete
+        this.checkAndEnableLogRow();
+    },
+
+    checkAndEnableLogRow() {
+        const logRow = document.querySelector('.log-rate-row');
+        if (!logRow) return;
+        
+        const exerciseCount = parseInt(logRow.getAttribute('data-exercise-count'));
+        const completedExercises = document.querySelectorAll('.exercise-row.exercise-complete:not(.log-rate-row)').length;
+        
+        console.log(`Checking log row: ${completedExercises}/${exerciseCount} exercises complete`);
+        
+        if (completedExercises >= exerciseCount) {
+            // Enable the log row
+            logRow.classList.add('enabled');
+            logRow.style.opacity = '1';
+            logRow.querySelector('.log-rating-stars').style.opacity = '1';
+            logRow.querySelector('.log-rating-stars').style.pointerEvents = 'auto';
+            logRow.querySelectorAll('.log-rate-star').forEach(star => {
+                star.style.cursor = 'pointer';
+                star.style.color = '#ccc';
+            });
+            logRow.querySelector('.log-workout-confirm').disabled = false;
+            logRow.querySelector('.log-workout-confirm').style.opacity = '1';
+            logRow.querySelector('.log-complete-icon').style.color = '#ddd';
+        } else {
+            // Disable the log row visually but keep stars interactive
+            logRow.classList.remove('enabled');
+            logRow.style.opacity = '0.6';
+            logRow.querySelector('.log-rating-stars').style.opacity = '0.6';
+            logRow.querySelector('.log-rating-stars').style.pointerEvents = 'auto';
+            logRow.querySelectorAll('.log-rate-star').forEach(star => {
+                star.style.cursor = 'pointer';
+                star.style.color = '#ccc';
+            });
+            logRow.querySelector('.log-workout-confirm').disabled = true;
+            logRow.querySelector('.log-workout-confirm').style.opacity = '0.5';
+            logRow.querySelector('.log-complete-icon').style.color = '#ddd';
         }
     },
 
@@ -698,8 +858,57 @@ const ExerciseTracker = {
                 // row.classList.add('exercise-complete');
             }
         });
+    },
+
+    logAndRateWorkout(rating) {
+        const selection = this.parseExerciseSelection();
+        let workoutName = null;
+
+        // Find the matching workout name
+        WORKOUT_PRESETS.forEach(preset => {
+            if (preset.exercises && JSON.stringify(preset.exercises.slice().sort((a, b) => a - b)) === 
+                JSON.stringify(selection.slice().sort((a, b) => a - b))) {
+                workoutName = preset.name;
+            }
+        });
+
+        if (!workoutName) {
+            workoutName = `Workout (${selection.length} exercise${selection.length !== 1 ? 's' : ''})`;
+        }
+
+        const today = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+        // Log the workout with rating
+        const log = JSON.parse(localStorage.getItem('workoutLog') || '[]');
+        log.push({
+            id: Date.now(),
+            name: workoutName,
+            date: today,
+            rating: rating
+        });
+        localStorage.setItem('workoutLog', JSON.stringify(log));
+        
+        // Update the log display
+        renderWorkoutLog();
+
+        // Show success feedback - fill the checkmark
+        const logRow = document.querySelector('.log-rate-row');
+        if (logRow) {
+            const checkIcon = logRow.querySelector('.log-complete-icon');
+            checkIcon.classList.remove('bi-check-circle');
+            checkIcon.classList.add('bi-check-circle-fill');
+            checkIcon.style.color = '#28a745';
+            
+            // Disable the row
+            logRow.classList.remove('enabled');
+            logRow.querySelector('.log-rating-stars').style.opacity = '0.3';
+            logRow.querySelector('.log-rating-stars').style.pointerEvents = 'none';
+            logRow.querySelector('.log-workout-confirm').disabled = true;
+            logRow.querySelector('.log-workout-confirm').style.opacity = '0.5';
+        }
     }
 };
+
 
 // TIMER NAVBAR FUNCTIONALITY
 const navbar   = document.getElementById('timerNavbar');
