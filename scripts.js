@@ -648,7 +648,6 @@ const ExerciseTracker = {
             });
 
             starsContainer.addEventListener('mouseout', () => {
-                if (!isEnabled) return;
                 const selectedRating = parseInt(starsContainer.getAttribute('data-selected-rating') || '0');
                 starsContainer.querySelectorAll('.log-rate-star').forEach((s, idx) => {
                     if (idx < selectedRating) {
@@ -905,6 +904,11 @@ const ExerciseTracker = {
             logRow.querySelector('.log-rating-stars').style.pointerEvents = 'none';
             logRow.querySelector('.log-workout-confirm').disabled = true;
             logRow.querySelector('.log-workout-confirm').style.opacity = '0.5';
+            
+            // Trigger fireworks celebration
+            if (window.startFireworks) {
+                window.startFireworks();
+            }
         }
     }
 };
