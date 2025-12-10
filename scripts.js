@@ -241,7 +241,7 @@ const WORKOUT_PRESETS = [
     {
         name: 'Push 3',
         description: 'Chest and Triceps',
-        exercises: [3, 3]
+        exercises: [3, 5]
     },
     {
         name: 'Pull 1',
@@ -539,7 +539,9 @@ const ExerciseTracker = {
                 </div>
                 <div class="col-10">
                     <div class="row">
-                        <div class="col">${exercise.name}: ${exercise.targetReps}</div>
+                        <div class="col">${exercise.name}: ${exercise.targetReps}
+                            <i class="bi bi-graph-up exercise-analytics-icon" style="margin-left: 0.5rem; cursor: pointer; color: #6c757d; font-size: 0.95rem;" data-exercise-id="${exercise.id}" title="View exercise analytics"></i>
+                        </div>
                     </div>
                     <div class="row">
                         <div class="col-3 col-sm-4">
@@ -608,6 +610,24 @@ const ExerciseTracker = {
                 const exerciseNumber = e.target.getAttribute('data-exercise-number');
                 const occurrenceNumber = e.target.getAttribute('data-occurrence');
                 this.clearExercise(exercise, displayIndex, exerciseNumber, occurrenceNumber);
+            });
+        });
+
+        // Exercise analytics icons in workout view
+        document.querySelectorAll('.exercise-analytics-icon').forEach(icon => {
+            icon.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const exerciseId = e.target.getAttribute('data-exercise-id');
+                showExerciseAnalytics(exerciseId);
+            });
+            
+            icon.addEventListener('mouseover', () => {
+                icon.style.color = '#007bff';
+            });
+            
+            icon.addEventListener('mouseout', () => {
+                icon.style.color = '#6c757d';
             });
         });
 
@@ -877,13 +897,34 @@ const ExerciseTracker = {
 
         const today = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
-        // Log the workout with rating
+        // PHASE 1: Collect exercise details with each logged workout
+        const exerciseDetails = [];
+        document.querySelectorAll('.exercise-row.exercise-complete:not(.log-rate-row)').forEach(row => {
+            const exerciseId = row.getAttribute('data-exercise-id');
+            const exercise = EXERCISES.find(e => e.id === exerciseId);
+            const displayIndex = row.getAttribute('data-display-index');
+            const outputElement = document.getElementById(`${exerciseId}-output-${displayIndex}`);
+            const repsOutput = outputElement?.textContent || '';
+            
+            if (repsOutput && exercise) {
+                exerciseDetails.push({
+                    name: exercise.name,
+                    exerciseId: exercise.id,
+                    repsOutput: repsOutput,
+                    targetReps: exercise.targetReps,
+                    timestamp: Date.now()
+                });
+            }
+        });
+
+        // Log the workout with rating AND exercise details
         const log = JSON.parse(localStorage.getItem('workoutLog') || '[]');
         log.push({
             id: Date.now(),
             name: workoutName,
             date: today,
-            rating: rating
+            rating: rating,
+            exercises: exerciseDetails  // Phase 1: Store exercise details
         });
         localStorage.setItem('workoutLog', JSON.stringify(log));
         
@@ -1243,6 +1284,29 @@ function renderWorkoutLog() {
       ratingDiv.appendChild(star);
     }
     
+    // Info icon to view history
+    const infoIcon = document.createElement('i');
+    infoIcon.className = 'bi bi-info-circle';
+    infoIcon.style.cursor = 'pointer';
+    infoIcon.style.fontSize = '1.25rem';
+    infoIcon.style.color = '#6c757d';
+    infoIcon.style.marginRight = '0.5rem';
+    infoIcon.title = 'Click to view workout details';
+    
+    infoIcon.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      showWorkoutHistory(entry.id);
+    });
+    
+    infoIcon.addEventListener('mouseover', () => {
+      infoIcon.style.color = '#007bff';
+    });
+    
+    infoIcon.addEventListener('mouseout', () => {
+      infoIcon.style.color = '#6c757d';
+    });
+    
     const removeIcon = document.createElement('i');
     removeIcon.className = 'bi bi-x-circle';
     removeIcon.style.cursor = 'pointer';
@@ -1263,8 +1327,25 @@ function renderWorkoutLog() {
       removeIcon.style.color = '#6c757d';
     });
     
+    // PHASE 2: Add click handler to view workout details
+    li.style.cursor = 'pointer';
+    li.style.transition = 'background-color 0.2s';
+    li.addEventListener('click', (e) => {
+      if (e.target.closest('i')) return; // Don't open if clicking icons
+      showWorkoutHistory(entry.id);
+    });
+    
+    li.addEventListener('mouseover', () => {
+      li.style.backgroundColor = '#f8f9fa';
+    });
+    
+    li.addEventListener('mouseout', () => {
+      li.style.backgroundColor = 'transparent';
+    });
+    
     li.appendChild(textDiv);
     li.appendChild(ratingDiv);
+    li.appendChild(infoIcon);
     li.appendChild(removeIcon);
     logContainer.appendChild(li);
   });
@@ -1323,6 +1404,513 @@ function updateWorkoutTitle(selection, videoName = null) {
   
   titleSpan.textContent = workoutName;
 }
+
+// PHASE 2: Show workout history with exercise details
+function showWorkoutHistory(logId) {
+  const log = JSON.parse(localStorage.getItem('workoutLog') || '[]');
+  const entry = log.find(e => e.id === logId);
+  
+  if (!entry) return;
+  
+  // Create modal HTML
+  let modalHTML = `
+    <div class="modal fade" id="workoutHistoryModal" tabindex="-1" role="dialog" aria-labelledby="workoutHistoryLabel" aria-hidden="true">
+      <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="workoutHistoryLabel">${entry.name}</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <div class="mb-3">
+              <strong>Date:</strong> ${entry.date}<br/>
+              <strong>Rating:</strong> ${entry.rating ? '⭐'.repeat(entry.rating) : 'Not rated'}
+            </div>
+            <hr/>
+            <h6>Exercise Breakdown:</h6>
+  `;
+  
+  if (entry.exercises && entry.exercises.length > 0) {
+    modalHTML += '<table class="table table-sm"><thead><tr><th>Exercise</th><th>Performance</th><th>Target</th><th style="width: 40px;"></th></tr></thead><tbody>';
+    entry.exercises.forEach(ex => {
+      modalHTML += `
+        <tr>
+          <td>${ex.name}</td>
+          <td><strong>${ex.repsOutput}</strong></td>
+          <td>${ex.targetReps}</td>
+          <td style="text-align: center;"><i class="bi bi-graph-up exercise-history-icon" data-exercise-id="${ex.exerciseId}" style="cursor: pointer; color: #6c757d; font-size: 1.1rem;" title="View exercise history"></i></td>
+        </tr>
+      `;
+    });
+    modalHTML += '</tbody></table>';
+  } else {
+    modalHTML += '<p class="text-muted">No exercise details recorded for this workout.</p>';
+  }
+  
+  modalHTML += `
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeWorkoutModal()">Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  // Remove old modal if exists
+  const oldModal = document.getElementById('workoutHistoryModal');
+  if (oldModal) oldModal.remove();
+  
+  // Add and show new modal
+  document.body.insertAdjacentHTML('beforeend', modalHTML);
+  
+  // Attach close handlers to both the X button and close button
+  const modalEl = document.getElementById('workoutHistoryModal');
+  const closeBtn = modalEl.querySelector('.close');
+  if (closeBtn) {
+    closeBtn.addEventListener('click', closeWorkoutModal);
+  }
+  
+  // Add event listeners to exercise history icons
+  modalEl.querySelectorAll('.exercise-history-icon').forEach(icon => {
+    icon.addEventListener('click', (e) => {
+      console.log('exercise-history-icon clicked');
+      e.preventDefault();
+      e.stopPropagation();
+      const exerciseId = icon.getAttribute('data-exercise-id');
+      console.log('Showing analytics for exercise:', exerciseId);
+      showExerciseAnalytics(exerciseId);
+    });
+    
+    icon.addEventListener('mouseover', () => {
+      icon.style.color = '#007bff';
+    });
+    
+    icon.addEventListener('mouseout', () => {
+      icon.style.color = '#6c757d';
+    });
+  });
+  
+  // Click outside modal to close
+  modalEl.addEventListener('click', (e) => {
+    if (e.target === modalEl) {
+      closeWorkoutModal();
+    }
+  });
+  
+  // Use Bootstrap modal if available
+  if (window.bootstrap?.Modal) {
+    const modal = new window.bootstrap.Modal(modalEl);
+    modal.show();
+  } else {
+    // Fallback for non-Bootstrap environments
+    modalEl.style.display = 'block';
+    modalEl.classList.add('show');
+    document.body.classList.add('modal-open');
+    
+    // Create and show backdrop
+    const backdrop = document.createElement('div');
+    backdrop.className = 'modal-backdrop fade show';
+    backdrop.id = 'workoutModalBackdrop';
+    document.body.appendChild(backdrop);
+  }
+}
+
+// Helper function to close workout history modal
+function closeWorkoutModal() {
+  const modalEl = document.getElementById('workoutHistoryModal');
+  if (!modalEl) return;
+  
+  if (window.bootstrap?.Modal) {
+    const modal = window.bootstrap.Modal.getInstance(modalEl);
+    if (modal) {
+      modal.hide();
+    }
+  } else {
+    // Fallback close
+    modalEl.style.display = 'none';
+    modalEl.classList.remove('show');
+    document.body.classList.remove('modal-open');
+    
+    const backdrop = document.getElementById('workoutModalBackdrop');
+    if (backdrop) backdrop.remove();
+  }
+  modalEl.remove();
+}
+
+// PHASE 3: Show exercise analytics and progress charts
+function showExerciseAnalytics(exerciseId) {
+  const log = JSON.parse(localStorage.getItem('workoutLog') || '[]');
+  const exercise = EXERCISES.find(e => e.id === exerciseId);
+  
+  if (!exercise) {
+    alert('Exercise not found');
+    return;
+  }
+  
+  // Collect all historical data for this exercise (ALL sets)
+  const historyData = [];
+  log.forEach(workout => {
+    if (workout.exercises) {
+      const exerciseRecords = workout.exercises.filter(e => e.exerciseId === exerciseId);
+      exerciseRecords.forEach(exerciseRecord => {
+        historyData.push({
+          date: workout.date,
+          performance: exerciseRecord.repsOutput,
+          timestamp: exerciseRecord.timestamp
+        });
+      });
+    }
+  });
+  
+  historyData.sort((a, b) => a.timestamp - b.timestamp);
+  
+  if (historyData.length === 0) {
+    alert('No historical data for this exercise yet. Log more workouts to see analytics.');
+    return;
+  }
+  
+  // Always create a standalone analytics modal
+  const analyticsModalHTML = `
+    <div class="modal fade" id="exerciseAnalyticsModal" tabindex="-1" role="dialog" aria-labelledby="exerciseAnalyticsLabel" aria-hidden="true">
+      <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="exerciseAnalyticsLabel">${exercise.name} - Analytics</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body" id="analyticsModalBody">
+            <!-- Analytics content will be inserted here -->
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  // Remove old analytics modal if exists
+  const oldAnalyticsModal = document.getElementById('exerciseAnalyticsModal');
+  if (oldAnalyticsModal) oldAnalyticsModal.remove();
+  
+  document.body.insertAdjacentHTML('beforeend', analyticsModalHTML);
+  const historyModal = document.getElementById('exerciseAnalyticsModal');
+  
+  // Create analytics content
+  let analyticsHTML = `
+    <h6>${exercise.name} - Progress Tracker</h6>
+    
+    <ul class="nav nav-tabs" id="analyticsTab" role="tablist" style="margin-bottom: 1rem;">
+      <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="table-tab" data-bs-toggle="tab" data-bs-target="#table-content" type="button" role="tab" aria-controls="table-content" aria-selected="true">Table</button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="chart-tab" data-bs-toggle="tab" data-bs-target="#chart-content" type="button" role="tab" aria-controls="chart-content" aria-selected="false">Chart</button>
+      </li>
+    </ul>
+    
+    <div class="tab-content" id="analyticsTabContent">
+      <div class="tab-pane fade show active" id="table-content" role="tabpanel" aria-labelledby="table-tab">
+        <h6>Performance History:</h6>
+        <table class="table table-sm">
+          <thead>
+            <tr><th>Date</th><th>Reps</th><th>Weight</th><th>Performance</th></tr>
+          </thead>
+          <tbody>
+  `;
+  
+  // Parse reps and weight from performance string
+  const parsedData = historyData.map(record => {
+    const match = record.performance.match(/(\d+)(?:\s*x\s*(\d+))?/);
+    let reps = 0, weight = 0;
+    
+    if (match) {
+      reps = parseInt(match[1]) || 0;
+      weight = match[2] ? parseInt(match[2]) : 0;
+    }
+    
+    return {
+      ...record,
+      reps: reps,
+      weight: weight
+    };
+  });
+  
+  // Display in reverse chronological order (most recent first)
+  parsedData.reverse().forEach(record => {
+    const weightDisplay = record.weight > 0 ? record.weight : '—';
+    analyticsHTML += `<tr><td>${record.date}</td><td><strong>${record.reps}</strong></td><td><strong>${weightDisplay}</strong></td><td>${record.performance}</td></tr>`;
+  });
+  
+  analyticsHTML += '</tbody></table>';
+  
+  // Calculate statistics for both reps and weight
+  const reps = parsedData.map(r => r.reps).filter(p => p > 0);
+  const weights = parsedData.map(w => w.weight).filter(w => w > 0);
+  
+  let statsHTML = '<hr/><h6>Statistics:</h6><ul class="list-unstyled">';
+  
+  if (reps.length > 0) {
+    const maxReps = Math.max(...reps);
+    const avgReps = (reps.reduce((a, b) => a + b, 0) / reps.length).toFixed(1);
+    const repImprovement = maxReps - Math.min(...reps);
+    
+    statsHTML += `
+      <li><strong>Reps - Personal Record:</strong> ${maxReps}</li>
+      <li><strong>Reps - Average:</strong> ${avgReps}</li>
+      <li><strong>Reps - Total Improvement:</strong> ${repImprovement > 0 ? '+' : ''}${repImprovement}</li>
+    `;
+  }
+  
+  if (weights.length > 0) {
+    const maxWeight = Math.max(...weights);
+    const avgWeight = (weights.reduce((a, b) => a + b, 0) / weights.length).toFixed(1);
+    const weightImprovement = maxWeight - Math.min(...weights);
+    
+    statsHTML += `
+      <li style="margin-top: 0.75rem;"><strong>Weight - Personal Record:</strong> ${maxWeight}</li>
+      <li><strong>Weight - Average:</strong> ${avgWeight}</li>
+      <li><strong>Weight - Total Improvement:</strong> ${weightImprovement > 0 ? '+' : ''}${weightImprovement}</li>
+    `;
+  }
+  
+  statsHTML += `<li style="margin-top: 0.75rem;"><strong>Sessions:</strong> ${historyData.length}</li></ul>`;
+  analyticsHTML += statsHTML;
+  
+  analyticsHTML += `
+      </div>
+      <div class="tab-pane fade" id="chart-content" role="tabpanel" aria-labelledby="chart-tab">
+        <div style="position: relative; width: 100%; height: 400px; margin: 1rem 0; overflow: hidden;">
+          <canvas id="performanceChart" style="position: relative; width: 100%; height: 100%;"></canvas>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  // Get the modal body element (always the same for standalone modal now)
+  const modalBody = historyModal.querySelector('#analyticsModalBody');
+  
+  modalBody.innerHTML = analyticsHTML;
+  
+  // Chart tab handler - use Bootstrap's shown.bs.tab event
+  const chartTab = modalBody.querySelector('#chart-tab');
+  const chartPane = modalBody.querySelector('#chart-content');
+  
+  if (chartTab && chartPane) {
+    // Initialize chart immediately if chart tab is already active
+    if (chartTab.classList.contains('active')) {
+      setTimeout(() => {
+        initializePerformanceChart(historyData, exercise.name);
+      }, 100);
+    }
+    
+    // Listen for Bootstrap tab show event
+    chartTab.addEventListener('shown.bs.tab', () => {
+      setTimeout(() => {
+        initializePerformanceChart(historyData, exercise.name);
+      }, 100);
+    });
+    
+    // Also try direct click for fallback
+    chartTab.addEventListener('click', (e) => {
+      setTimeout(() => {
+        initializePerformanceChart(historyData, exercise.name);
+      }, 100);
+    });
+  }
+  
+  // Show the modal
+  if (window.bootstrap?.Modal) {
+    const modal = new window.bootstrap.Modal(historyModal);
+    modal.show();
+  }
+}
+
+// Helper function to reattach exercise history handlers
+function attachExerciseHistoryHandlers(modalEl) {
+  modalEl.querySelectorAll('.exercise-history-icon').forEach(icon => {
+    icon.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      showExerciseAnalytics(icon.getAttribute('data-exercise-id'));
+    });
+    
+    icon.addEventListener('mouseover', () => {
+      icon.style.color = '#007bff';
+    });
+    
+    icon.addEventListener('mouseout', () => {
+      icon.style.color = '#6c757d';
+    });
+  });
+}
+
+// Initialize Chart.js performance chart with dual metrics (reps and weight)
+function initializePerformanceChart(historyData, exerciseName) {
+  const chartCanvas = document.getElementById('performanceChart');
+  console.log('initializePerformanceChart called, canvas:', chartCanvas ? 'found' : 'NOT FOUND');
+  if (!chartCanvas) return;
+  
+  // Destroy any existing chart to avoid conflicts
+  if (window.performanceChartInstance) {
+    window.performanceChartInstance.destroy();
+  }
+  
+  // Parse reps and weight from performance string
+  const parsedData = historyData.map(record => {
+    const match = record.performance.match(/(\d+)(?:\s*x\s*(\d+))?/);
+    let reps = 0, weight = 0;
+    
+    if (match) {
+      reps = parseInt(match[1]) || 0;
+      weight = match[2] ? parseInt(match[2]) : 0;
+    }
+    
+    return {
+      ...record,
+      reps: reps,
+      weight: weight
+    };
+  });
+  
+  // Extract reps and weight arrays
+  const repsData = parsedData.map(r => r.reps);
+  const weightData = parsedData.map(w => w.weight);
+  
+  // Create labels for the X-axis (show date + set number if multiple per day)
+  const dateCountMap = {};
+  const labels = historyData.map((record, index) => {
+    const date = record.date;
+    if (!dateCountMap[date]) {
+      dateCountMap[date] = 0;
+    }
+    dateCountMap[date]++;
+    
+    // If multiple entries on same date, show set number
+    if (historyData.filter(r => r.date === date).length > 1) {
+      return `${date} (Set ${dateCountMap[date]})`;
+    }
+    return date;
+  });
+  
+  // Determine if we have weight data
+  const hasWeightData = weightData.some(w => w > 0);
+  
+  // Create the chart
+  const ctx = chartCanvas.getContext('2d');
+  
+  const datasets = [
+    {
+      label: 'Reps',
+      data: repsData,
+      borderColor: '#007bff',
+      backgroundColor: 'rgba(0, 123, 255, 0.1)',
+      borderWidth: 2,
+      pointRadius: 5,
+      pointBackgroundColor: '#007bff',
+      pointBorderColor: '#fff',
+      pointBorderWidth: 2,
+      tension: 0.3,
+      fill: true,
+      yAxisID: 'y'
+    }
+  ];
+  
+  // Add weight dataset only if weight data exists
+  if (hasWeightData) {
+    datasets.push({
+      label: 'Weight',
+      data: weightData,
+      borderColor: '#dc3545',
+      backgroundColor: 'rgba(220, 53, 69, 0.1)',
+      borderWidth: 2,
+      pointRadius: 5,
+      pointBackgroundColor: '#dc3545',
+      pointBorderColor: '#fff',
+      pointBorderWidth: 2,
+      tension: 0.3,
+      fill: true,
+      yAxisID: 'y1'
+    });
+  }
+  
+  const chartConfig = {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: datasets
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: {
+        mode: 'index',
+        intersect: false
+      },
+      plugins: {
+        legend: {
+          display: true,
+          position: 'top'
+        }
+      },
+      scales: {
+        y: {
+          type: 'linear',
+          display: true,
+          position: 'left',
+          title: {
+            display: true,
+            text: 'Reps'
+          },
+          beginAtZero: true
+        }
+      }
+    }
+  };
+  
+  // Add secondary Y-axis for weight if weight data exists
+  if (hasWeightData) {
+    chartConfig.options.scales.y1 = {
+      type: 'linear',
+      display: true,
+      position: 'right',
+      title: {
+        display: true,
+        text: 'Weight'
+      },
+      beginAtZero: true,
+      grid: {
+        drawOnChartArea: false
+      }
+    };
+  }
+  
+  window.performanceChartInstance = new Chart(ctx, chartConfig);
+}
+
+// Helper function to close analytics modal
+function closeAnalyticsModal() {
+  const modalEl = document.getElementById('analyticsModal');
+  if (!modalEl) return;
+  
+  if (window.bootstrap?.Modal) {
+    const modal = window.bootstrap.Modal.getInstance(modalEl);
+    if (modal) {
+      modal.hide();
+    }
+  } else {
+    // Fallback close
+    modalEl.style.display = 'none';
+    modalEl.classList.remove('show');
+    document.body.classList.remove('modal-open');
+    
+    const backdrop = document.getElementById('analyticsModalBackdrop');
+    if (backdrop) backdrop.remove();
+  }
+  modalEl.remove();
+}
+
 document.getElementById("export-log-btn").addEventListener("click", function () {
     const data = JSON.stringify(localStorage, null, 2);
     const blob = new Blob([data], { type: "application/json" });
