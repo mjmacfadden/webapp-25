@@ -30,6 +30,11 @@
         <script src="https://cdn.jsdelivr.net/npm/simplelightbox@2.14.2/dist/simple-lightbox.min.js"></script>
         <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
 
+        <!-- FIREBASE (Compat version - stable for browser) -->
+        <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+
     </head>
     <body>
     <!-- Fireworks Canvas -->
@@ -37,29 +42,55 @@
 
     <!-- Navbar with Timer -->
     <nav class="navbar navbar-light bg-light navbar-timer fixed-top" id="timerNavbar">
-        <div class="container-fluid">
-        <!-- Menu Toggle -->
-        <button class="navbar-toggler" type="button" data-bs-toggle="offcanvas" data-bs-target="#workoutSidebar" aria-controls="workoutSidebar">
-            <span class="navbar-toggler-icon"></span>
-        </button>
-
-        <!-- Brand -->
-        <span class="navbar-brand mb-0 h1"><a href="index.html">SWOLL</a><span id="workoutTitle" style="font-size: 0.6em; margin-left: 0.5rem; color: #6c757d;"></span></span>
-
-        <!-- Stopwatch Timer Button with Dropdown -->
-        <div class="dropdown">
-            <button id="timerBtn" class="btn btn-link text-dark p-0 border-0" type="button" style="font-size: 1.5rem;">
-                <i class="bi bi-stopwatch" id="stopwatchIcon"></i>
+        <div class="container-fluid" style="display: flex; justify-content: space-between; align-items: center;">
+            <!-- Left: Menu Toggle -->
+            <button class="navbar-toggler" type="button" data-bs-toggle="offcanvas" data-bs-target="#workoutSidebar" aria-controls="workoutSidebar">
+                <span class="navbar-toggler-icon"></span>
             </button>
-            <button class="btn btn-link text-dark p-0 border-0" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="font-size: 0.75rem; margin-left: 0.5rem;">
-                <i class="bi bi-caret-down-fill"></i>
-            </button>
-            <ul class="dropdown-menu dropdown-menu-end">
-                <li><a class="dropdown-item timer-duration-option" href="#" data-duration="30">30 seconds</a></li>
-                <li><a class="dropdown-item timer-duration-option" href="#" data-duration="60">60 seconds</a></li>
-                <li><a class="dropdown-item timer-duration-option" href="#" data-duration="90">90 seconds</a></li>
-            </ul>
-        </div>
+
+            <!-- Center: Brand (SWOLL) -->
+            <div style="flex: 1; display: flex; justify-content: center;">
+                <span class="navbar-brand mb-0 h1"><a href="index.html">SWOLL</a><span id="workoutTitle" style="font-size: 0.6em; margin-left: 0.5rem; color: #6c757d;"></span></span>
+            </div>
+
+            <!-- Right: Stopwatch and Auth Controls -->
+            <div style="display: flex; align-items: center; gap: 1rem;">
+                <!-- Stopwatch Timer Button with Dropdown -->
+                <div class="dropdown">
+                    <button id="timerBtn" class="btn btn-link text-dark p-0 border-0" type="button" style="font-size: 1.5rem;">
+                        <i class="bi bi-stopwatch" id="stopwatchIcon"></i>
+                    </button>
+                    <button class="btn btn-link text-dark p-0 border-0" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="font-size: 0.75rem; margin-left: 0.5rem;">
+                        <i class="bi bi-caret-down-fill"></i>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><a class="dropdown-item timer-duration-option" href="#" data-duration="30">30 seconds</a></li>
+                        <li><a class="dropdown-item timer-duration-option" href="#" data-duration="60">60 seconds</a></li>
+                        <li><a class="dropdown-item timer-duration-option" href="#" data-duration="90">90 seconds</a></li>
+                    </ul>
+                </div>
+
+                <!-- Auth Controls in Navbar -->
+                <div id="auth-navbar">
+                    <div id="auth-signed-out" style="display: block;">
+                        <button class="btn btn-link text-dark p-0 border-0" type="button" id="auth-google-login-btn" style="font-size: 1.2rem;">
+                            <i class="bi bi-person-circle"></i>
+                        </button>
+                    </div>
+                    <div id="auth-signed-in" style="display: none;">
+                        <div class="dropdown">
+                            <button class="btn btn-link text-dark p-0 border-0" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="font-size: 1.2rem;">
+                                <img id="auth-user-avatar" src="" alt="User" style="width: 28px; height: 28px; border-radius: 50%; object-fit: cover;">
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li><span class="dropdown-item-text" id="auth-user-email" style="font-size: 0.9em;"></span></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><button class="dropdown-item" id="auth-signout-btn-navbar">Sign Out</button></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </nav>
 
@@ -70,15 +101,23 @@
                 <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
             </div>
             <div class="offcanvas-body">
+                <!-- Auth section moved to navbar -->
+
                 <ul class="list-group" id="workout-menu">
                     <!-- Populated by JavaScript -->
                 </ul>
                 
                 <div style="margin-top: 2rem;">
-                    <h6 style="font-weight: 600; margin-bottom: 1rem;">Log</h6>
-                    <ul class="list-group" id="workout-log">
-                        <!-- Populated by JavaScript -->
-                    </ul>
+                    <h6 style="font-weight: 600; margin-bottom: 1rem;">
+                        <button class="btn btn-link p-0" type="button" data-bs-toggle="collapse" data-bs-target="#logSection" aria-expanded="false">
+                            <span style="color: inherit; text-decoration: none;">Log ▼</span>
+                        </button>
+                    </h6>
+                    <div id="logSection" class="collapse">
+                        <ul class="list-group" id="workout-log">
+                            <!-- Populated by JavaScript -->
+                        </ul>
+                    </div>
                 </div>
                 <div style="margin-top: 2rem;">
                     <h6 style="font-weight: 600; margin-bottom: 1rem;">Import/Export</h6>
@@ -95,24 +134,93 @@
             </div>
         </div>
 
+        <!-- Ad Placeholder -->
+        <div class="container mt-4" id="ad-container" style="display: none;">
+            <div class="card border-secondary" style="background-color: #f8f9fa; padding: 2rem; text-align: center; margin-bottom: 1.5rem;">
+                <p style="margin: 0; color: #6c757d; font-size: 0.85rem; font-weight: 500;">Advertisement</p>
+                <div style="margin-top: 1rem; padding: 2rem; background-color: #e9ecef; border-radius: 0.5rem; min-height: 100px; display: flex; align-items: center; justify-content: center;">
+                    <p style="margin: 0; color: #adb5bd;">Ad space</p>
+                </div>
+            </div>
+        </div>
+
         <div class="container mt-4" id="exercise-container"></div>
 
         <script>
-            // Cache-busting for development - reload JS every time
+            // Load scripts.js with cache-busting
+            console.log('✓ HTML script block executing');
             const script = document.createElement('script');
-            script.src = 'scripts.js?t=' + Date.now();
+            const cacheBustToken = Date.now() + Math.random();
+            script.src = 'scripts.js?t=' + cacheBustToken;
+            console.log('Loading scripts.js with cache bust:', cacheBustToken);
             script.onload = function() {
+                console.log('✓ scripts.js loaded successfully');
                 // Check if DOM is already loaded
                 if (document.readyState === 'loading') {
+                    console.log('✓ DOM still loading, waiting for DOMContentLoaded');
                     document.addEventListener('DOMContentLoaded', function() {
+                        console.log('✓ DOMContentLoaded fired, calling ExerciseTracker.init()');
                         ExerciseTracker.init();
                     });
                 } else {
                     // DOM is already loaded, call directly
+                    console.log('✓ DOM already loaded, calling ExerciseTracker.init() directly');
                     ExerciseTracker.init();
                 }
             };
+            script.onerror = function() {
+                console.error('✗ ERROR: scripts.js failed to load!');
+            };
             document.head.appendChild(script);
+        </script>
+        <script src="firebase-config.js"></script>
+        <script>
+            // Firebase Auth UI handlers
+            document.addEventListener('DOMContentLoaded', function() {
+                // Google Sign-In button
+                const authGoogleLoginBtn = document.getElementById('auth-google-login-btn');
+                if (authGoogleLoginBtn) {
+                    authGoogleLoginBtn.addEventListener('click', function() {
+                        signInWithGoogle();
+                    });
+                }
+
+                // Sign Out buttons
+                const authSignoutBtns = document.querySelectorAll('[id^="auth-signout-btn"]');
+                authSignoutBtns.forEach(function(btn) {
+                    btn.addEventListener('click', function() {
+                        signOut().then(function() {
+                            console.log('User signed out');
+                            // Remove premium mode when signing out
+                            localStorage.removeItem('isPremium');
+                            if (window.ExerciseTracker && window.ExerciseTracker.updateAdVisibility) {
+                                window.ExerciseTracker.updateAdVisibility();
+                            }
+                        }).catch(function(error) {
+                            console.error('Sign out error:', error);
+                        });
+                    });
+                });
+            });
+
+            function signInWithGoogle() {
+                const provider = new firebase.auth.GoogleAuthProvider();
+                
+                firebase.auth().signInWithPopup(provider)
+                    .then(function(result) {
+                        console.log('Google sign-in successful:', result.user.email);
+                    })
+                    .catch(function(error) {
+                        console.error('Google sign-in error:', error.code, error.message);
+                        let errorMsg = error.message;
+                        if (error.code === 'auth/popup-blocked') {
+                            errorMsg = 'Sign-in popup was blocked. Please allow popups for this site.';
+                        } else if (error.code === 'auth/popup-closed-by-user') {
+                            errorMsg = 'Sign-in was cancelled.';
+                        }
+                        alert(errorMsg);
+                    });
+            }
         </script>
         <script src="fireworks.js"></script>
     </body>
