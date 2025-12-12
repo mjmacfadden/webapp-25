@@ -285,7 +285,26 @@ const WORKOUT_PRESETS = [
     }
 ];
 
+// Utility function to wait for Chart.js library to load
+function waitForChartJS(callback, maxWait = 30000) {
+  const startTime = Date.now();
+  
+  function check() {
+    if (typeof Chart !== 'undefined') {
+      callback();
+    } else if (Date.now() - startTime < maxWait) {
+      // Keep checking every 50ms
+      setTimeout(check, 50);
+    } else {
+      console.error('Chart.js library failed to load after', maxWait, 'ms');
+    }
+  }
+  
+  check();
+}
+
 // Exercise Tracker Module
+console.log('✓ Scripts.js loaded, ExerciseTracker module being created');
 const ExerciseTracker = {
     lightboxConfig: {
         captionDelay: 100,
@@ -299,18 +318,67 @@ const ExerciseTracker = {
     _lightboxInstance: null,
 
     init() {
-        console.log('ExerciseTracker.init() called');
-        this.renderMenu();
-        this.renderExercises();
-        this.initLightbox();
-        this.loadSavedValues();
+        try {
+            this.renderMenu();
+        } catch(e) { console.error('ERROR in renderMenu:', e); }
+        try {
+            this.renderExercises();
+        } catch(e) { console.error('ERROR in renderExercises:', e); }
+        try {
+            this.initLightbox();
+        } catch(e) { console.error('ERROR in initLightbox:', e); }
+        try {
+            this.loadPreviousWorkoutValues();
+        } catch(e) { console.error('ERROR in loadPreviousWorkoutValues:', e); }
+        try {
+            this.updateAdVisibility();
+        } catch(e) { console.error('ERROR in updateAdVisibility:', e); }
+    },
+
+    // Save data with automatic cloud sync for premium users
+    saveData(key, data) {
+        const dataStr = typeof data === 'string' ? data : JSON.stringify(data);
+        
+        // Always save locally first
+        localStorage.setItem(key, dataStr);
+
+        // Sync to cloud if premium user with cloud sync enabled
+        if (localStorage.getItem('isPremium') === 'true' && window.CloudSync && CloudSync.syncEnabled) {
+            const user = firebase.auth().currentUser;
+            if (user) {
+                const userDataPath = `users/${user.uid}/data`;
+                
+                // Sync immediately
+                try {
+                    if (key === 'workoutLog') {
+                        const jsonData = JSON.parse(dataStr);
+                        CloudSync.database.ref(`${userDataPath}/workoutLog`).set(jsonData)
+                            .catch((error) => {
+                                console.error('❌ Error syncing workoutLog:', error);
+                            });
+                    } else if (key === 'timerDuration') {
+                        CloudSync.database.ref(`${userDataPath}/preferences/timerDuration`).set(parseInt(dataStr))
+                            .catch((error) => {
+                                console.error('❌ Error syncing timerDuration:', error);
+                            });
+                    } else if (key.startsWith('exercise-')) {
+                        const jsonData = JSON.parse(dataStr);
+                        CloudSync.database.ref(`${userDataPath}/exercises/${key}`).set(jsonData)
+                            .catch((error) => {
+                                console.error('❌ Error syncing exercise:', error);
+                            });
+                    }
+                } catch (error) {
+                    console.error('❌ Error in saveData sync:', error);
+                }
+            }
+        }
     },
 
     renderMenu() {
-        console.log('renderMenu called, WORKOUT_PRESETS length:', WORKOUT_PRESETS.length);
         const menu = document.getElementById('workout-menu');
         if (!menu) {
-            console.error('workout-menu element not found!');
+            console.error('ERROR: workout-menu element not found');
             return;
         }
         menu.innerHTML = '';
@@ -339,7 +407,8 @@ const ExerciseTracker = {
                 window.history.pushState(null, '', link.href);
                 this.renderExercises();
                 this.initLightbox();
-                this.loadSavedValues();
+                this.loadPreviousWorkoutValues();
+                this.updateAdVisibility();
                 // Close sidebar after selection
                 const offcanvas = document.getElementById('workoutSidebar');
                 if (offcanvas) {
@@ -398,7 +467,8 @@ const ExerciseTracker = {
             window.history.pushState(null, '', viewAllLink.href);
             this.renderExercises();
             this.initLightbox();
-            this.loadSavedValues();
+            this.loadPreviousWorkoutValues();
+            this.updateAdVisibility();
             // Close sidebar after selection
             const offcanvas = document.getElementById('workoutSidebar');
             if (offcanvas) {
@@ -857,26 +927,63 @@ const ExerciseTracker = {
         localStorage.setItem(`exercise-${exerciseNumber}-occurrence-${occurrenceNumber}`, JSON.stringify([reps, weight]));
     },
 
-    loadSavedValues() {
+    loadPreviousWorkoutValues() {
+        // Load values from the most recent logged workout that matches current selection
+        const log = JSON.parse(localStorage.getItem('workoutLog') || '[]');
+        if (log.length === 0) return;
+        
+        // Get most recent logged workout
+        const lastWorkout = log[log.length - 1];
+        if (!lastWorkout.exercises) return;
+        
+        // Create a map of exercises by ID for quick lookup
+        const exerciseMap = {};
+        lastWorkout.exercises.forEach(ex => {
+            if (!exerciseMap[ex.exerciseId]) {
+                exerciseMap[ex.exerciseId] = [];
+            }
+            exerciseMap[ex.exerciseId].push(ex.repsOutput);
+        });
+        
+        // For each exercise in current view, find matching one from previous workout
+        let exerciseIndexByIdMap = {};
+        
         document.querySelectorAll('.exercise-row').forEach(row => {
             const exerciseId = row.getAttribute('data-exercise-id');
-            const exercise = EXERCISES.find(e => e.id === exerciseId);
             const displayIndex = row.getAttribute('data-display-index');
-            const exerciseNumber = row.getAttribute('data-exercise-number');
-            const occurrenceNumber = row.getAttribute('data-occurrence');
             
-            // Use both exerciseNumber and occurrenceNumber to retrieve correct value
-            const saved = localStorage.getItem(`exercise-${exerciseNumber}-occurrence-${occurrenceNumber}`);
+            // Track which occurrence of this exercise we're on
+            if (!exerciseIndexByIdMap[exerciseId]) {
+                exerciseIndexByIdMap[exerciseId] = 0;
+            }
             
-            if (saved) {
-                const [reps, weight] = JSON.parse(saved);
-                
-                const output = exercise.weight ? `${reps} x ${weight}` : reps;
-                document.getElementById(`${exerciseId}-output-${displayIndex}`).textContent = output;
-                // Don't add the exercise-complete class on page load
-                // row.classList.add('exercise-complete');
+            // Get the corresponding value from previous workout
+            if (exerciseMap[exerciseId] && exerciseIndexByIdMap[exerciseId] < exerciseMap[exerciseId].length) {
+                const previousValue = exerciseMap[exerciseId][exerciseIndexByIdMap[exerciseId]];
+                document.getElementById(`${exerciseId}-output-${displayIndex}`).textContent = previousValue;
+                exerciseIndexByIdMap[exerciseId]++;
             }
         });
+    },
+
+    loadSavedValues() {
+        // Legacy function - no longer used, kept for backward compatibility
+        // Now loading from logged workout entries instead of temporary localStorage
+    },
+
+    updateAdVisibility() {
+        const isPremium = localStorage.getItem('isPremium') === 'true';
+        const adContainer = document.getElementById('ad-container');
+        
+        if (!adContainer) return;
+        
+        if (isPremium) {
+            // Premium users: hide ads
+            adContainer.style.display = 'none';
+        } else {
+            // Free users: show ads
+            adContainer.style.display = 'block';
+        }
     },
 
     logAndRateWorkout(rating) {
@@ -926,7 +1033,7 @@ const ExerciseTracker = {
             rating: rating,
             exercises: exerciseDetails  // Phase 1: Store exercise details
         });
-        localStorage.setItem('workoutLog', JSON.stringify(log));
+        this.saveData('workoutLog', log);
         
         // Update the log display
         renderWorkoutLog();
@@ -984,7 +1091,7 @@ document.querySelectorAll('.timer-duration-option').forEach(option => {
     e.preventDefault();
     const duration = parseInt(e.target.getAttribute('data-duration'));
     timerDuration = duration * 1000;
-    localStorage.setItem('timerDuration', duration);
+    this.saveData('timerDuration', duration);
     updateTimerMenuHighlight();
   });
 });
@@ -1154,8 +1261,8 @@ function addToLog(workoutName, date) {
     rating: 0
   });
   
-  // Save to localStorage
-  localStorage.setItem('workoutLog', JSON.stringify(log));
+  // Save to localStorage and cloud if premium
+  ExerciseTracker.saveData('workoutLog', log);
   
   // Update the log display
   renderWorkoutLog();
@@ -1185,8 +1292,8 @@ function removeFromLog(logId) {
     // Remove the entry
     log = log.filter(entry => entry.id !== logId);
     
-    // Save to localStorage
-    localStorage.setItem('workoutLog', JSON.stringify(log));
+    // Save to localStorage and cloud if premium
+    ExerciseTracker.saveData('workoutLog', log);
     
     // Update the log display
     renderWorkoutLog();
@@ -1202,6 +1309,13 @@ function removeFromLog(logId) {
 
 function renderWorkoutLog() {
   const logContainer = document.getElementById('workout-log');
+  
+  // Guard: if element doesn't exist yet, skip rendering
+  if (!logContainer) {
+    console.warn('⚠ workout-log element not found, skipping renderWorkoutLog()');
+    return;
+  }
+  
   const log = JSON.parse(localStorage.getItem('workoutLog') || '[]');
   
   logContainer.innerHTML = '';
@@ -1357,7 +1471,7 @@ function updateWorkoutRating(logId, rating) {
   const entry = log.find(e => e.id === logId);
   if (entry) {
     entry.rating = rating;
-    localStorage.setItem('workoutLog', JSON.stringify(log));
+    ExerciseTracker.saveData('workoutLog', log);
     renderWorkoutLog();
   }
 }
@@ -1698,31 +1812,41 @@ function showExerciseAnalytics(exerciseId) {
   const chartPane = modalBody.querySelector('#chart-content');
   
   if (chartTab && chartPane) {
-    // Initialize chart immediately if chart tab is already active
-    if (chartTab.classList.contains('active')) {
-      setTimeout(() => {
-        initializePerformanceChart(historyData, exercise.name);
-      }, 100);
-    }
-    
     // Listen for Bootstrap tab show event
     chartTab.addEventListener('shown.bs.tab', () => {
       setTimeout(() => {
-        initializePerformanceChart(historyData, exercise.name);
-      }, 100);
+        waitForChartJS(() => {
+          initializePerformanceChart(historyData, exercise.name);
+        });
+      }, 150);
     });
     
-    // Also try direct click for fallback
-    chartTab.addEventListener('click', (e) => {
+    // Also listen for click to handle manual tab switching
+    chartTab.addEventListener('click', () => {
       setTimeout(() => {
-        initializePerformanceChart(historyData, exercise.name);
-      }, 100);
+        waitForChartJS(() => {
+          initializePerformanceChart(historyData, exercise.name);
+        });
+      }, 150);
     });
   }
   
-  // Show the modal
+  // Show the modal and initialize chart after modal is visible
   if (window.bootstrap?.Modal) {
     const modal = new window.bootstrap.Modal(historyModal);
+    
+    // Listen for modal shown event
+    historyModal.addEventListener('shown.bs.modal', () => {
+      // If chart tab is already active, initialize immediately
+      if (chartTab && chartTab.classList.contains('active')) {
+        setTimeout(() => {
+          waitForChartJS(() => {
+            initializePerformanceChart(historyData, exercise.name);
+          });
+        }, 150);
+      }
+    }, { once: true });
+    
     modal.show();
   }
 }
@@ -1749,12 +1873,34 @@ function attachExerciseHistoryHandlers(modalEl) {
 // Initialize Chart.js performance chart with dual metrics (reps and weight)
 function initializePerformanceChart(historyData, exerciseName) {
   const chartCanvas = document.getElementById('performanceChart');
-  console.log('initializePerformanceChart called, canvas:', chartCanvas ? 'found' : 'NOT FOUND');
-  if (!chartCanvas) return;
+  
+  if (!chartCanvas) {
+    console.warn('Canvas element not found');
+    return;
+  }
+  
+  // Ensure canvas has proper dimensions
+  const parent = chartCanvas.parentElement;
+  if (parent && window.getComputedStyle(parent).display === 'none') {
+    console.warn('Canvas parent is hidden, deferring chart initialization');
+    return;
+  }
   
   // Destroy any existing chart to avoid conflicts
   if (window.performanceChartInstance) {
     window.performanceChartInstance.destroy();
+    window.performanceChartInstance = null;
+  }
+  
+  try {
+    const ctx = chartCanvas.getContext('2d');
+    if (!ctx) {
+      console.error('Could not get canvas context');
+      return;
+    }
+  } catch (e) {
+    console.error('Error getting canvas context:', e);
+    return;
   }
   
   // Parse reps and weight from performance string
@@ -1798,8 +1944,6 @@ function initializePerformanceChart(historyData, exerciseName) {
   const hasWeightData = weightData.some(w => w > 0);
   
   // Create the chart
-  const ctx = chartCanvas.getContext('2d');
-  
   const datasets = [
     {
       label: 'Reps',
@@ -1886,7 +2030,17 @@ function initializePerformanceChart(historyData, exerciseName) {
     };
   }
   
-  window.performanceChartInstance = new Chart(ctx, chartConfig);
+  const ctx = chartCanvas.getContext('2d');
+  if (!ctx) {
+    console.error('Failed to get 2D context from canvas');
+    return;
+  }
+  
+  try {
+    window.performanceChartInstance = new Chart(ctx, chartConfig);
+  } catch (error) {
+    console.error('Error creating chart:', error);
+  }
 }
 
 // Helper function to close analytics modal
