@@ -381,6 +381,7 @@ const ExerciseTracker = {
         }
         menu.innerHTML = '';
 
+        // Show workout presets first
         WORKOUT_PRESETS.forEach((preset, index) => {
             const li = document.createElement('li');
             li.className = 'list-group-item d-flex justify-content-between align-items-center';
@@ -493,8 +494,127 @@ const ExerciseTracker = {
         viewAllLi.appendChild(viewAllCheck);
         menu.appendChild(viewAllLi);
         
-        // Restore completed states from localStorage
-        restoreWorkoutStates();
+        // Add logged workouts section (separate from presets)
+        const loggedWorkoutsSection = document.createElement('div');
+        loggedWorkoutsSection.style.marginTop = '2rem';
+        
+        // Add "Logged Workouts" heading
+        const loggedWorkoutsHeader = document.createElement('h6');
+        loggedWorkoutsHeader.style.fontWeight = '600';
+        loggedWorkoutsHeader.style.marginBottom = '1rem';
+        loggedWorkoutsHeader.style.marginLeft = '1rem';
+        loggedWorkoutsHeader.style.marginRight = '1rem';
+        loggedWorkoutsHeader.textContent = 'Logged Workouts';
+        loggedWorkoutsSection.appendChild(loggedWorkoutsHeader);
+        
+        // Create logged workouts list
+        const loggedList = document.createElement('ul');
+        loggedList.className = 'list-group';
+        loggedList.style.marginBottom = '1rem';
+        loggedList.style.listStyle = 'none'; // Remove bullet points
+        loggedList.style.paddingLeft = '0'; // Remove default padding
+        
+        // Add logged workouts
+        const log = JSON.parse(localStorage.getItem('workoutLog') || '[]');
+        const recentWorkouts = log.slice().reverse(); // Most recent first
+        
+        if (recentWorkouts.length === 0) {
+            const noWorkoutsLi = document.createElement('li');
+            noWorkoutsLi.className = 'list-group-item text-muted';
+            noWorkoutsLi.style.fontSize = '0.9rem';
+            noWorkoutsLi.textContent = 'No workouts logged yet';
+            loggedList.appendChild(noWorkoutsLi);
+        } else {
+            // Show first 3 workouts
+            const visibleCount = Math.min(3, recentWorkouts.length);
+            for (let i = 0; i < visibleCount; i++) {
+                const workout = recentWorkouts[i];
+                const workoutLi = document.createElement('li');
+                workoutLi.className = 'list-group-item';
+                workoutLi.style.fontSize = '0.9rem';
+                workoutLi.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <strong>${workout.name}</strong><br/>
+                            <small style="color: #6c757d;">${workout.date}</small>
+                        </div>
+                        <div style="color: #ffc107;">
+                            ${'⭐'.repeat(workout.rating || 0)}
+                        </div>
+                    </div>
+                `;
+                loggedList.appendChild(workoutLi);
+            }
+            
+            // Add "See More" dropdown if there are more than 3 workouts
+            if (recentWorkouts.length > 3) {
+                const seeMoreLi = document.createElement('li');
+                seeMoreLi.className = 'list-group-item';
+                seeMoreLi.style.padding = '0.5rem 1rem';
+                
+                const seeMoreBtn = document.createElement('button');
+                seeMoreBtn.className = 'btn btn-link btn-sm w-100 text-start';
+                seeMoreBtn.style.padding = '0';
+                seeMoreBtn.style.color = '#007bff';
+                seeMoreBtn.textContent = `See More (${recentWorkouts.length - 3} more)`;
+                seeMoreBtn.dataset.expanded = 'false';
+                
+                // Toggle functionality
+                seeMoreBtn.addEventListener('click', () => {
+                    const isExpanded = seeMoreBtn.dataset.expanded === 'true';
+                    if (isExpanded) {
+                        // Hide all extra workout items
+                        for (let j = 3; j < recentWorkouts.length; j++) {
+                            const item = loggedList.children[j];
+                            if (item) item.style.display = 'none';
+                        }
+                        seeMoreBtn.textContent = `See More (${recentWorkouts.length - 3} more)`;
+                        seeMoreBtn.dataset.expanded = 'false';
+                    } else {
+                        // Show all extra workout items
+                        for (let j = 3; j < recentWorkouts.length; j++) {
+                            const item = loggedList.children[j];
+                            if (item) item.style.display = 'list-item';
+                        }
+                        seeMoreBtn.textContent = 'See Less';
+                        seeMoreBtn.dataset.expanded = 'true';
+                    }
+                });
+                
+                seeMoreLi.appendChild(seeMoreBtn);
+                loggedList.appendChild(seeMoreLi);
+                
+                // Add hidden workout items directly to the list
+                for (let i = 3; i < recentWorkouts.length; i++) {
+                    const workout = recentWorkouts[i];
+                    const workoutLi = document.createElement('li');
+                    workoutLi.className = 'list-group-item';
+                    workoutLi.style.fontSize = '0.9rem';
+                    workoutLi.style.display = 'none'; // Hidden by default
+                    workoutLi.innerHTML = `
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <strong>${workout.name}</strong><br/>
+                                <small style="color: #6c757d;">${workout.date}</small>
+                            </div>
+                            <div style="color: #ffc107;">
+                                ${'⭐'.repeat(workout.rating || 0)}
+                            </div>
+                        </div>
+                    `;
+                    loggedList.appendChild(workoutLi);
+                }
+            }
+        }
+        
+        loggedWorkoutsSection.appendChild(loggedList);
+        
+        // Append to the logged workouts section in the sidebar
+        const loggedWorkoutsContainer = document.getElementById('logged-workouts-section');
+        if (loggedWorkoutsContainer) {
+            loggedWorkoutsContainer.innerHTML = '';
+            loggedWorkoutsContainer.appendChild(loggedWorkoutsSection);
+        }
     },
 
     renderWorkoutPresetCards() {
