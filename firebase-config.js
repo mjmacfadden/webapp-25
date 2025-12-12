@@ -112,43 +112,29 @@ window.CloudSync = {
 
         console.log('☁️ Cloud sync initialized for premium user:', user.email);
 
-        // IMPORTANT: Set up real-time listeners FIRST (they will pull existing cloud data)
-        this.setupRealtimeListeners(userDataPath);
-
-        // Then sync local data to cloud after a delay (to let cloud data pull down first)
-        const self = this;
-        setTimeout(() => {
-            console.log('☁️ Syncing any local changes to cloud');
-            self.syncLocalToCloud(userDataPath);
-        }, 1000);
-    },
-
-    // Set up real-time listeners for changes from other devices
-    setupRealtimeListeners: function(userDataPath) {
-        const self = this;
-        let lastWorkoutLogTimestamp = 0;
-        let lastPreferencesTimestamp = 0;
-
-        // INITIAL LOAD: Fetch current cloud data immediately (one-time read)
+        // First: Fetch initial cloud data to populate localStorage
         console.log('☁️ Fetching initial cloud data...');
-        this.database.ref(`${userDataPath}`).once('value', (snapshot) => {
+        this.database.ref(userDataPath).once('value', (snapshot) => {
             const cloudData = snapshot.val();
             if (cloudData) {
-                console.log('📥 Initial cloud data received:', cloudData);
+                console.log('📥 Initial cloud data fetched');
                 
-                // Load workout log
+                // Load workout log from cloud
                 if (cloudData.workoutLog && Array.isArray(cloudData.workoutLog)) {
                     const localLog = JSON.parse(localStorage.getItem('workoutLog') || '[]');
                     if (JSON.stringify(cloudData.workoutLog) !== JSON.stringify(localLog)) {
-                        console.log('📥 Loading workoutLog from cloud:', cloudData.workoutLog);
+                        console.log('📥 Loading workoutLog from cloud');
                         localStorage.setItem('workoutLog', JSON.stringify(cloudData.workoutLog));
                         
-                        // Refresh UI with correct function name
-                        if (typeof renderWorkoutLog === 'function') {
-                            console.log('🔄 Refreshing workout log UI');
-                            renderWorkoutLog();
-                        } else {
-                            console.warn('⚠️ renderWorkoutLog function not available yet');
+                        // Render the updated log
+                        if (window.ExerciseTracker && window.ExerciseTracker.renderWorkoutLog) {
+                            window.ExerciseTracker.renderWorkoutLog();
+                        }
+                        
+                        // Reload previous values to update input fields
+                        if (window.ExerciseTracker && window.ExerciseTracker.loadPreviousWorkoutValues) {
+                            console.log('📝 Loading previous workout values from cloud data');
+                            window.ExerciseTracker.loadPreviousWorkoutValues();
                         }
                     }
                 }
@@ -162,12 +148,25 @@ window.CloudSync = {
                 
                 // Load exercise states
                 if (cloudData.exercises) {
-                    Object.keys(cloudData.exercises).forEach(function(key) {
+                    Object.keys(cloudData.exercises).forEach((key) => {
                         localStorage.setItem(key, JSON.stringify(cloudData.exercises[key]));
                     });
                 }
             }
         });
+
+        // Set up real-time listeners for all user data
+        this.setupRealtimeListeners(userDataPath);
+
+        // Sync any pending local changes to cloud
+        this.syncLocalToCloud(userDataPath);
+    },
+
+    // Set up real-time listeners for changes from other devices
+    setupRealtimeListeners: function(userDataPath) {
+        const self = this;
+        let lastWorkoutLogTimestamp = 0;
+        let lastPreferencesTimestamp = 0;
 
         // Listen for workout log changes
         this.database.ref(`${userDataPath}/workoutLog`).on('value', function(snapshot) {
@@ -186,10 +185,17 @@ window.CloudSync = {
                         const merged = self.mergeWorkoutData(localData, cloudData);
                         localStorage.setItem('workoutLog', JSON.stringify(merged));
                         
-                        // Refresh UI
-                        if (typeof renderWorkoutLog === 'function') {
-                            renderWorkoutLog();
+                        // Refresh UI if ExerciseTracker is available
+                        if (window.ExerciseTracker && window.ExerciseTracker.renderWorkoutLog) {
+                            window.ExerciseTracker.renderWorkoutLog();
                         }
+                        
+                        // Also reload previous workout values to update the exercise input fields
+                        if (window.ExerciseTracker && window.ExerciseTracker.loadPreviousWorkoutValues) {
+                            console.log('📝 Reloading previous workout values');
+                            window.ExerciseTracker.loadPreviousWorkoutValues();
+                        }
+                        
                         console.log('🔄 Synced workout log from cloud (changes detected)');
                     }
                 } else {
@@ -233,11 +239,13 @@ window.CloudSync = {
         if (!this.syncEnabled) return;
 
         try {
-            // Sync workout log (always, even if empty)
+            // Sync workout log
             const workoutLog = JSON.parse(localStorage.getItem('workoutLog') || '[]');
-            this.database.ref(`${userDataPath}/workoutLog`).set(workoutLog).catch(error => {
-                console.error('❌ Error syncing workoutLog:', error);
-            });
+            if (workoutLog.length > 0) {
+                this.database.ref(`${userDataPath}/workoutLog`).set(workoutLog).catch(error => {
+                    console.error('❌ Error syncing workoutLog:', error);
+                });
+            }
 
             // Sync preferences (always sync, even if empty)
             const timerDuration = localStorage.getItem('timerDuration') || '30';

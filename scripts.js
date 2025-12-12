@@ -322,14 +322,12 @@ const ExerciseTracker = {
             this.renderMenu();
         } catch(e) { console.error('ERROR in renderMenu:', e); }
         try {
-            this.renderExercises();
-        } catch(e) { console.error('ERROR in renderExercises:', e); }
+            // Show workout preset cards by default instead of all exercises
+            this.renderWorkoutPresetCards();
+        } catch(e) { console.error('ERROR in renderWorkoutPresetCards:', e); }
         try {
             this.initLightbox();
         } catch(e) { console.error('ERROR in initLightbox:', e); }
-        try {
-            this.loadPreviousWorkoutValues();
-        } catch(e) { console.error('ERROR in loadPreviousWorkoutValues:', e); }
         try {
             this.updateAdVisibility();
         } catch(e) { console.error('ERROR in updateAdVisibility:', e); }
@@ -497,6 +495,112 @@ const ExerciseTracker = {
         
         // Restore completed states from localStorage
         restoreWorkoutStates();
+    },
+
+    renderWorkoutPresetCards() {
+        const container = document.getElementById('exercise-container');
+        if (!container) {
+            console.error('❌ exercise-container not found');
+            return;
+        }
+        
+        const videoContainer = document.getElementById('video-container');
+        if (videoContainer) {
+            videoContainer.style.display = 'none';
+        }
+        
+        container.innerHTML = '';
+        
+        const cardsDiv = document.createElement('div');
+        cardsDiv.className = 'row g-3';
+        cardsDiv.style.padding = '1rem';
+        
+        // Create a card for each workout preset
+        WORKOUT_PRESETS.forEach((preset, index) => {
+            const colDiv = document.createElement('div');
+            colDiv.className = 'col-12 col-md-6 col-lg-4';
+            
+            const card = document.createElement('div');
+            card.className = 'card h-100 workout-card';
+            card.style.cursor = 'pointer';
+            card.style.transition = 'transform 0.2s, box-shadow 0.2s';
+            
+            // Card header with icon
+            let cardContent = `
+                <div class="card-body">
+                    <div style="margin-bottom: 1rem;">
+            `;
+            
+            if (preset.videoId) {
+                cardContent += '<i class="bi bi-play-circle-fill" style="font-size: 2rem; color: #007bff;"></i>';
+            } else {
+                cardContent += '<i class="bi bi-dumbbell" style="font-size: 2rem; color: #6c757d;"></i>';
+            }
+            
+            cardContent += `
+                    </div>
+                    <h5 class="card-title">${preset.name}</h5>
+                    <p class="card-text text-muted">${preset.description}</p>
+            `;
+            
+            // Show exercise count if it's not a video
+            if (!preset.videoId && preset.exercises) {
+                cardContent += `
+                    <small class="text-muted">
+                        <i class="bi bi-list"></i> ${preset.exercises.length} exercise${preset.exercises.length !== 1 ? 's' : ''}
+                    </small>
+                `;
+            }
+            
+            cardContent += `
+                </div>
+            `;
+            
+            card.innerHTML = cardContent;
+            
+            // Click handler to select workout
+            card.addEventListener('click', (e) => {
+                e.preventDefault();
+                let href;
+                if (preset.videoId) {
+                    href = `?video=${preset.videoId}`;
+                } else {
+                    href = `?e=${preset.exercises.join(',')}`;
+                }
+                window.history.pushState(null, '', href);
+                this.renderExercises();
+                this.initLightbox();
+                this.loadPreviousWorkoutValues();
+                this.updateAdVisibility();
+                
+                // Close sidebar after selection
+                const offcanvas = document.getElementById('workoutSidebar');
+                if (offcanvas) {
+                    const bsOffcanvas = bootstrap.Offcanvas.getInstance(offcanvas);
+                    if (bsOffcanvas) bsOffcanvas.hide();
+                }
+            });
+            
+            // Hover effects
+            card.addEventListener('mouseover', () => {
+                card.style.transform = 'translateY(-4px)';
+                card.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.15)';
+            });
+            
+            card.addEventListener('mouseout', () => {
+                card.style.transform = 'translateY(0)';
+                card.style.boxShadow = 'none';
+            });
+            
+            colDiv.appendChild(card);
+            cardsDiv.appendChild(colDiv);
+        });
+        
+        container.appendChild(cardsDiv);
+        console.log('✓ Rendered workout preset cards');
+        
+        // Update the workout title to show default view
+        updateWorkoutTitle([]);
     },
 
     parseExerciseSelection() {
