@@ -112,11 +112,15 @@ window.CloudSync = {
 
         console.log('☁️ Cloud sync initialized for premium user:', user.email);
 
-        // Set up real-time listeners for all user data
+        // IMPORTANT: Set up real-time listeners FIRST (they will pull existing cloud data)
         this.setupRealtimeListeners(userDataPath);
 
-        // Sync any pending local changes to cloud
-        this.syncLocalToCloud(userDataPath);
+        // Then sync local data to cloud after a delay (to let cloud data pull down first)
+        const self = this;
+        setTimeout(() => {
+            console.log('☁️ Syncing any local changes to cloud');
+            self.syncLocalToCloud(userDataPath);
+        }, 1000);
     },
 
     // Set up real-time listeners for changes from other devices
@@ -124,6 +128,46 @@ window.CloudSync = {
         const self = this;
         let lastWorkoutLogTimestamp = 0;
         let lastPreferencesTimestamp = 0;
+
+        // INITIAL LOAD: Fetch current cloud data immediately (one-time read)
+        console.log('☁️ Fetching initial cloud data...');
+        this.database.ref(`${userDataPath}`).once('value', (snapshot) => {
+            const cloudData = snapshot.val();
+            if (cloudData) {
+                console.log('📥 Initial cloud data received:', cloudData);
+                
+                // Load workout log
+                if (cloudData.workoutLog && Array.isArray(cloudData.workoutLog)) {
+                    const localLog = JSON.parse(localStorage.getItem('workoutLog') || '[]');
+                    if (JSON.stringify(cloudData.workoutLog) !== JSON.stringify(localLog)) {
+                        console.log('📥 Loading workoutLog from cloud:', cloudData.workoutLog);
+                        localStorage.setItem('workoutLog', JSON.stringify(cloudData.workoutLog));
+                        
+                        // Refresh UI with correct function name
+                        if (typeof renderWorkoutLog === 'function') {
+                            console.log('🔄 Refreshing workout log UI');
+                            renderWorkoutLog();
+                        } else {
+                            console.warn('⚠️ renderWorkoutLog function not available yet');
+                        }
+                    }
+                }
+                
+                // Load preferences
+                if (cloudData.preferences) {
+                    if (cloudData.preferences.timerDuration) {
+                        localStorage.setItem('timerDuration', cloudData.preferences.timerDuration);
+                    }
+                }
+                
+                // Load exercise states
+                if (cloudData.exercises) {
+                    Object.keys(cloudData.exercises).forEach(function(key) {
+                        localStorage.setItem(key, JSON.stringify(cloudData.exercises[key]));
+                    });
+                }
+            }
+        });
 
         // Listen for workout log changes
         this.database.ref(`${userDataPath}/workoutLog`).on('value', function(snapshot) {
@@ -142,9 +186,9 @@ window.CloudSync = {
                         const merged = self.mergeWorkoutData(localData, cloudData);
                         localStorage.setItem('workoutLog', JSON.stringify(merged));
                         
-                        // Refresh UI if ExerciseTracker is available
-                        if (window.ExerciseTracker && window.ExerciseTracker.renderWorkoutLog) {
-                            window.ExerciseTracker.renderWorkoutLog();
+                        // Refresh UI
+                        if (typeof renderWorkoutLog === 'function') {
+                            renderWorkoutLog();
                         }
                         console.log('🔄 Synced workout log from cloud (changes detected)');
                     }
@@ -189,13 +233,11 @@ window.CloudSync = {
         if (!this.syncEnabled) return;
 
         try {
-            // Sync workout log
+            // Sync workout log (always, even if empty)
             const workoutLog = JSON.parse(localStorage.getItem('workoutLog') || '[]');
-            if (workoutLog.length > 0) {
-                this.database.ref(`${userDataPath}/workoutLog`).set(workoutLog).catch(error => {
-                    console.error('❌ Error syncing workoutLog:', error);
-                });
-            }
+            this.database.ref(`${userDataPath}/workoutLog`).set(workoutLog).catch(error => {
+                console.error('❌ Error syncing workoutLog:', error);
+            });
 
             // Sync preferences (always sync, even if empty)
             const timerDuration = localStorage.getItem('timerDuration') || '30';
