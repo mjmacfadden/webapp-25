@@ -525,85 +525,109 @@ const ExerciseTracker = {
             noWorkoutsLi.textContent = 'No workouts logged yet';
             loggedList.appendChild(noWorkoutsLi);
         } else {
+            // Helper to create a workout list item with info and delete icons
+            function createSidebarWorkoutLi(workout) {
+              const workoutLi = document.createElement('li');
+              workoutLi.className = 'list-group-item d-flex justify-content-between align-items-center';
+              workoutLi.style.fontSize = '0.9rem';
+              workoutLi.style.gap = '0.5rem';
+              // Main info
+              const infoDiv = document.createElement('div');
+              infoDiv.style.flex = '1';
+              infoDiv.innerHTML = `<strong>${workout.name}</strong><br/><small style=\"color: #6c757d;\">${workout.date}</small>`;
+              // Stars
+              const starsDiv = document.createElement('div');
+              starsDiv.style.color = '#ffc107';
+              starsDiv.style.marginRight = '0.5rem';
+              starsDiv.innerHTML = `${'⭐'.repeat(workout.rating || 0)}`;
+              // Info icon
+              const infoIcon = document.createElement('i');
+              infoIcon.className = 'bi bi-info-circle';
+              infoIcon.style.cursor = 'pointer';
+              infoIcon.style.fontSize = '1.1rem';
+              infoIcon.style.color = '#6c757d';
+              infoIcon.title = 'View workout details';
+              infoIcon.style.marginRight = '0.75rem';
+              infoIcon.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                showWorkoutHistory(workout.id);
+              });
+              infoIcon.addEventListener('mouseover', () => { infoIcon.style.color = '#007bff'; });
+              infoIcon.addEventListener('mouseout', () => { infoIcon.style.color = '#6c757d'; });
+              // Delete icon
+              const deleteIcon = document.createElement('i');
+              deleteIcon.className = 'bi bi-x-circle';
+              deleteIcon.style.cursor = 'pointer';
+              deleteIcon.style.fontSize = '1.1rem';
+              deleteIcon.style.color = '#6c757d';
+              deleteIcon.title = 'Delete workout';
+              deleteIcon.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                removeFromLog(workout.id, true); // Pass true to trigger sidebar update
+              });
+              deleteIcon.addEventListener('mouseover', () => { deleteIcon.style.color = '#dc3545'; });
+              deleteIcon.addEventListener('mouseout', () => { deleteIcon.style.color = '#6c757d'; });
+              // Layout
+              const rightDiv = document.createElement('div');
+              rightDiv.style.display = 'flex';
+              rightDiv.style.alignItems = 'center';
+              rightDiv.appendChild(starsDiv);
+              rightDiv.appendChild(infoIcon);
+              rightDiv.appendChild(deleteIcon);
+              workoutLi.appendChild(infoDiv);
+              workoutLi.appendChild(rightDiv);
+              // Click on li to view info (not icons)
+              workoutLi.addEventListener('click', (e) => {
+                if (e.target.closest('i')) return;
+                showWorkoutHistory(workout.id);
+              });
+              return workoutLi;
+            }
             // Show first 3 workouts
             const visibleCount = Math.min(3, recentWorkouts.length);
             for (let i = 0; i < visibleCount; i++) {
-                const workout = recentWorkouts[i];
-                const workoutLi = document.createElement('li');
-                workoutLi.className = 'list-group-item';
-                workoutLi.style.fontSize = '0.9rem';
-                workoutLi.innerHTML = `
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <div>
-                            <strong>${workout.name}</strong><br/>
-                            <small style="color: #6c757d;">${workout.date}</small>
-                        </div>
-                        <div style="color: #ffc107;">
-                            ${'⭐'.repeat(workout.rating || 0)}
-                        </div>
-                    </div>
-                `;
-                loggedList.appendChild(workoutLi);
+              const workout = recentWorkouts[i];
+              loggedList.appendChild(createSidebarWorkoutLi(workout));
             }
             
             // Add "See More" dropdown if there are more than 3 workouts
             if (recentWorkouts.length > 3) {
-                const seeMoreLi = document.createElement('li');
-                seeMoreLi.className = 'list-group-item';
-                seeMoreLi.style.padding = '0.5rem 1rem';
-                
-                const seeMoreBtn = document.createElement('button');
-                seeMoreBtn.className = 'btn btn-link btn-sm w-100 text-start';
-                seeMoreBtn.style.padding = '0';
-                seeMoreBtn.style.color = '#007bff';
-                seeMoreBtn.textContent = `See More (${recentWorkouts.length - 3} more)`;
-                seeMoreBtn.dataset.expanded = 'false';
-                
-                // Toggle functionality
-                seeMoreBtn.addEventListener('click', () => {
-                    const isExpanded = seeMoreBtn.dataset.expanded === 'true';
-                    if (isExpanded) {
-                        // Hide all extra workout items
-                        for (let j = 3; j < recentWorkouts.length; j++) {
-                            const item = loggedList.children[j];
-                            if (item) item.style.display = 'none';
-                        }
-                        seeMoreBtn.textContent = `See More (${recentWorkouts.length - 3} more)`;
-                        seeMoreBtn.dataset.expanded = 'false';
-                    } else {
-                        // Show all extra workout items
-                        for (let j = 3; j < recentWorkouts.length; j++) {
-                            const item = loggedList.children[j];
-                            if (item) item.style.display = 'list-item';
-                        }
-                        seeMoreBtn.textContent = 'See Less';
-                        seeMoreBtn.dataset.expanded = 'true';
-                    }
-                });
-                
-                seeMoreLi.appendChild(seeMoreBtn);
-                loggedList.appendChild(seeMoreLi);
-                
-                // Add hidden workout items directly to the list
-                for (let i = 3; i < recentWorkouts.length; i++) {
-                    const workout = recentWorkouts[i];
-                    const workoutLi = document.createElement('li');
-                    workoutLi.className = 'list-group-item';
-                    workoutLi.style.fontSize = '0.9rem';
-                    workoutLi.style.display = 'none'; // Hidden by default
-                    workoutLi.innerHTML = `
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <div>
-                                <strong>${workout.name}</strong><br/>
-                                <small style="color: #6c757d;">${workout.date}</small>
-                            </div>
-                            <div style="color: #ffc107;">
-                                ${'⭐'.repeat(workout.rating || 0)}
-                            </div>
-                        </div>
-                    `;
-                    loggedList.appendChild(workoutLi);
+              const seeMoreLi = document.createElement('li');
+              seeMoreLi.className = 'list-group-item';
+              seeMoreLi.style.padding = '0.5rem 1rem';
+              const seeMoreBtn = document.createElement('button');
+              seeMoreBtn.className = 'btn btn-link btn-sm w-100 text-start';
+              seeMoreBtn.style.padding = '0';
+              seeMoreBtn.style.color = '#007bff';
+              seeMoreBtn.textContent = `See More (${recentWorkouts.length - 3} more)`;
+              seeMoreBtn.dataset.expanded = 'false';
+              seeMoreBtn.addEventListener('click', () => {
+                const isExpanded = seeMoreBtn.dataset.expanded === 'true';
+                for (let i = 3; i < loggedList.children.length; i++) {
+                  const item = loggedList.children[i];
+                  if (item && item.tagName === 'LI') {
+                    item.style.display = isExpanded ? 'none' : 'list-item';
+                  }
                 }
+                if (isExpanded) {
+                  seeMoreBtn.textContent = `See More (${recentWorkouts.length - 3} more)`;
+                  seeMoreBtn.dataset.expanded = 'false';
+                } else {
+                  seeMoreBtn.textContent = 'See Less';
+                  seeMoreBtn.dataset.expanded = 'true';
+                }
+              });
+              seeMoreLi.appendChild(seeMoreBtn);
+              loggedList.appendChild(seeMoreLi);
+              // Add hidden workout items directly to the list (with info/delete icons)
+              for (let i = 3; i < recentWorkouts.length; i++) {
+                const workout = recentWorkouts[i];
+                const workoutLi = createSidebarWorkoutLi(workout);
+                workoutLi.style.display = 'none'; // Hidden by default
+                loggedList.appendChild(workoutLi);
+              }
             }
         }
         
@@ -1259,8 +1283,8 @@ const ExerciseTracker = {
         });
         this.saveData('workoutLog', log);
         
-        // Update the log display
-        renderWorkoutLog();
+        // Update the sidebar menu to show the new logged workout
+        ExerciseTracker.renderMenu();
 
         // Show success feedback - fill the checkmark
         const logRow = document.querySelector('.log-rate-row');
@@ -1488,11 +1512,11 @@ function addToLog(workoutName, date) {
   // Save to localStorage and cloud if premium
   ExerciseTracker.saveData('workoutLog', log);
   
-  // Update the log display
-  renderWorkoutLog();
+  // Update the sidebar menu to show the new logged workout
+  ExerciseTracker.renderMenu();
 }
 
-function removeFromLog(logId) {
+function removeFromLog(logId, updateSidebar = true) {
   // Show confirmation alert using Bootstrap modal
   const alertDiv = document.createElement('div');
   alertDiv.className = 'alert alert-warning alert-dismissible fade show';
@@ -1519,8 +1543,8 @@ function removeFromLog(logId) {
     // Save to localStorage and cloud if premium
     ExerciseTracker.saveData('workoutLog', log);
     
-    // Update the log display
-    renderWorkoutLog();
+    // Only update sidebar (don't render main log which is for history view only)
+    ExerciseTracker.renderMenu();
     
     // Remove alert
     document.body.removeChild(alertDiv);
@@ -1696,12 +1720,13 @@ function updateWorkoutRating(logId, rating) {
   if (entry) {
     entry.rating = rating;
     ExerciseTracker.saveData('workoutLog', log);
-    renderWorkoutLog();
+    // Update the sidebar menu
+    ExerciseTracker.renderMenu();
   }
 }
 
 function restoreWorkoutStates() {
-  renderWorkoutLog();
+  // Sidebar rendering is handled by renderMenu()
 }
 
 // Video workout logging
