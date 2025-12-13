@@ -12,6 +12,7 @@ if (!canvas) {
     const fireworks = [];
     const particles = [];
     let animationFrameId = null;
+    let fireworksStartTime = 0;
 
     class Firework {
         constructor() {
@@ -89,8 +90,9 @@ if (!canvas) {
         // Use clearRect() to clear the canvas with a transparent fill
         ctx.clearRect(0, 0, canvas.width, canvas.height); 
 
-        // Randomly launch a new firework
-        if (Math.random() < 0.03) {
+        // Randomly launch a new firework (only within the first 4 seconds)
+        const elapsedTime = Date.now() - fireworksStartTime;
+        if (Math.random() < 0.03 && elapsedTime < 4000) {
             fireworks.push(new Firework());
         }
 
@@ -134,6 +136,9 @@ if (!canvas) {
         
         console.log(`Canvas display after:`, canvas.style.display);
         console.log(`Canvas size after: ${canvas.width}x${canvas.height}`);
+        
+        // Record the start time for 4-second limit
+        fireworksStartTime = Date.now();
         
         // Clear previous fireworks
         fireworks.length = 0;

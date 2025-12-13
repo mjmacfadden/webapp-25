@@ -535,11 +535,62 @@ const ExerciseTracker = {
               const infoDiv = document.createElement('div');
               infoDiv.style.flex = '1';
               infoDiv.innerHTML = `<strong>${workout.name}</strong><br/><small style=\"color: #6c757d;\">${workout.date}</small>`;
-              // Stars
+              // Stars - make them interactive for rating
               const starsDiv = document.createElement('div');
-              starsDiv.style.color = '#ffc107';
+              starsDiv.style.display = 'flex';
+              starsDiv.style.gap = '0.25rem';
               starsDiv.style.marginRight = '0.5rem';
-              starsDiv.innerHTML = `${'⭐'.repeat(workout.rating || 0)}`;
+              starsDiv.style.cursor = 'pointer';
+              
+              // Create 4 interactive star icons
+              for (let i = 1; i <= 4; i++) {
+                const star = document.createElement('i');
+                star.className = workout.rating >= i ? 'bi bi-star-fill' : 'bi bi-star';
+                star.style.color = workout.rating >= i ? '#ffc107' : '#6c757d';
+                star.style.fontSize = '0.95rem';
+                star.dataset.rating = i;
+                star.dataset.logId = workout.id;
+                
+                star.addEventListener('click', (e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  updateWorkoutRating(workout.id, i);
+                });
+                
+                star.addEventListener('mouseover', () => {
+                  // Preview stars on hover
+                  const allStars = starsDiv.querySelectorAll('i');
+                  allStars.forEach(s => {
+                    if (parseInt(s.dataset.rating) <= i) {
+                      s.style.color = '#ffc107';
+                      s.classList.remove('bi-star');
+                      s.classList.add('bi-star-fill');
+                    } else {
+                      s.style.color = '#6c757d';
+                      s.classList.remove('bi-star-fill');
+                      s.classList.add('bi-star');
+                    }
+                  });
+                });
+                
+                star.addEventListener('mouseout', () => {
+                  // Restore actual rating on mouse out
+                  const allStars = starsDiv.querySelectorAll('i');
+                  allStars.forEach(s => {
+                    if (workout.rating >= parseInt(s.dataset.rating)) {
+                      s.style.color = '#ffc107';
+                      s.classList.remove('bi-star');
+                      s.classList.add('bi-star-fill');
+                    } else {
+                      s.style.color = '#6c757d';
+                      s.classList.remove('bi-star-fill');
+                      s.classList.add('bi-star');
+                    }
+                  });
+                });
+                
+                starsDiv.appendChild(star);
+              }
               // Info icon
               const infoIcon = document.createElement('i');
               infoIcon.className = 'bi bi-info-circle';
