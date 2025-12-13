@@ -594,6 +594,10 @@ const ExerciseTracker = {
             
             // Add "See More" dropdown if there are more than 3 workouts
             if (recentWorkouts.length > 3) {
+              // Create array to hold hidden workout items
+              const hiddenWorkoutItems = [];
+              
+              // Create the "See More" button
               const seeMoreLi = document.createElement('li');
               seeMoreLi.className = 'list-group-item';
               seeMoreLi.style.padding = '0.5rem 1rem';
@@ -601,16 +605,22 @@ const ExerciseTracker = {
               seeMoreBtn.className = 'btn btn-link btn-sm w-100 text-start';
               seeMoreBtn.style.padding = '0';
               seeMoreBtn.style.color = '#007bff';
+              seeMoreBtn.style.border = 'none';
+              seeMoreBtn.style.cursor = 'pointer';
               seeMoreBtn.textContent = `See More (${recentWorkouts.length - 3} more)`;
               seeMoreBtn.dataset.expanded = 'false';
-              seeMoreBtn.addEventListener('click', () => {
+              
+              seeMoreBtn.addEventListener('click', (e) => {
+                e.preventDefault();
                 const isExpanded = seeMoreBtn.dataset.expanded === 'true';
-                for (let i = 3; i < loggedList.children.length; i++) {
-                  const item = loggedList.children[i];
-                  if (item && item.tagName === 'LI') {
-                    item.style.display = isExpanded ? 'none' : 'list-item';
+                // Toggle visibility of all hidden items using classList
+                hiddenWorkoutItems.forEach((item) => {
+                  if (isExpanded) {
+                    item.classList.add('d-none');
+                  } else {
+                    item.classList.remove('d-none');
                   }
-                }
+                });
                 if (isExpanded) {
                   seeMoreBtn.textContent = `See More (${recentWorkouts.length - 3} more)`;
                   seeMoreBtn.dataset.expanded = 'false';
@@ -619,14 +629,17 @@ const ExerciseTracker = {
                   seeMoreBtn.dataset.expanded = 'true';
                 }
               });
+              
               seeMoreLi.appendChild(seeMoreBtn);
               loggedList.appendChild(seeMoreLi);
-              // Add hidden workout items directly to the list (with info/delete icons)
+              
+              // Now add the hidden workout items after the button
               for (let i = 3; i < recentWorkouts.length; i++) {
                 const workout = recentWorkouts[i];
                 const workoutLi = createSidebarWorkoutLi(workout);
-                workoutLi.style.display = 'none'; // Hidden by default
+                workoutLi.classList.add('d-none'); // Hidden by default using Bootstrap class
                 loggedList.appendChild(workoutLi);
+                hiddenWorkoutItems.push(workoutLi);
               }
             }
         }
